@@ -9,6 +9,7 @@ import uuid
 import time
 import click
 import submitit
+import pathlib
 from submitit.core.utils import CommandFunction
 
 try:
@@ -162,7 +163,7 @@ class Salvo(object):
         return self.in_salvo_arg_block("--use-abs-path")
 
     def get_generator(self):
-        return run_path(self.param_generator_path)["generator"](self.param_generator_args)
+        return run_path(os.path.join(pathlib.Path(__file__).parent.resolve(), self.param_generator_path))["generator"](self.param_generator_args)
 
     def set_it_up(self, experiment_directory):
         # create the submitit executor for creating and managing jobs
