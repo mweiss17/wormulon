@@ -19,13 +19,13 @@ def main(train_script, experiment_dir, **kwargs):
     # setup the executor parameters based on the cluster location
     if ex.cluster == "slurm":
         ex.update_parameters(
-            mem_gb=kwargs.get("mem_gb", 8),
-            cpus_per_task=kwargs.get("cpus_per_task", 12),
-            timeout_min=kwargs.get("timeout_min", 12),
+            mem_gb=kwargs.get("mem_gb") or 8,
+            cpus_per_task=kwargs.get("cpus_per_task") or 12,
+            timeout_min=kwargs.get("timeout_min") or 1000,
             tasks_per_node=1,
             nodes=1,
-            slurm_partition=kwargs.get("slurm_partition", "long"),
-            slurm_gres=kwargs.get("slurm_gres", None),
+            slurm_partition=kwargs.get("slurm_partition") or "long",
+            slurm_gres=kwargs.get("slurm_gres"),
         )
     command = ["python3"] + sys.argv[1:]
     print(f"running: {command}")
