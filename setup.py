@@ -2,24 +2,19 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='wormulon',
+    name="wormulon",
     description="Wormulon: Home planet of the Slurm Worms",
-    version='0.1.0',
+    version="0.1.0",
     author="Martin Weiss; Nasim Rahaman",
     author_email="martin.clyde.weiss@gmail.com",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=[
-        "click",
-        "rich",
-        "submitit",
-        "wandb",
-        "numpy"
-    ],
+    install_requires=["click", "rich", "submitit", "wandb", "numpy"],
     entry_points={
-        'console_scripts': [
-            'submit = wormulon.submit:main',
-            'salvo = wormulon.salvo:fire',
+        "console_scripts": [
+            "submit = wormulon.submit:main",
+            "tpu_submit = wormulon.tpu_submit:tpu_submit",
+            "salvo = wormulon.salvo:fire",
         ],
     },
 )

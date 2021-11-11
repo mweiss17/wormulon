@@ -5,12 +5,15 @@ import click
 import submitit
 from submitit.core.utils import CommandFunction
 
-@click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
-@click.argument('train_script')
-@click.argument('experiment_dir')
-@click.option('--mem_gb')
-@click.option('--cpus_per_task')
-@click.option('--slurm_gres')
+
+@click.command(
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+)
+@click.argument("train_script")
+@click.argument("experiment_dir")
+@click.option("--mem_gb")
+@click.option("--cpus_per_task")
+@click.option("--slurm_gres")
 def main(train_script, experiment_dir, **kwargs):
 
     # create the submitit executor for creating and managing jobs
