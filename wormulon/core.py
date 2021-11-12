@@ -224,11 +224,14 @@ class TPUJob(Job):
         while True:
             if self.preempted:
                 print("Preempted")
-                return
+                return JobStatus.PREEMPTED
             if self.done:
                 print("Done")
-                return
+                return JobStatus.DONE
             if time.time() - self.last_heartbeat > 60:
                 print("No heartbeat")
-                return
+                return JobStatus.FAILED
             time.sleep(1)
+
+    def cleanup(self):
+        self.tpu.delete()
