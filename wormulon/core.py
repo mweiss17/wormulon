@@ -171,7 +171,6 @@ class TPUJob(Job):
         self.last_heartbeat = time.time()
         self._trainer_path = None
         self._training_state_path = None
-        self.prefix = f"{self.experiment_directory}/{str(time.time())}"
 
     def __repr__(self):
         return "<TPUJob: {}>".format(self.job_id)
@@ -188,6 +187,11 @@ class TPUJob(Job):
     def train(self):
         train_args = " ".join([self.tpu.bucket, self.tpu_job_path])
         self.ssh(self.train_cmd + " " + train_args)
+
+    @property
+    def prefix(self):
+        prefix = f"{self.experiment_directory}/e{self.training_state.epoch}_s{self.training_state.step}_t{str(time.time())}"
+        return prefix
 
     @property
     def trainer_path(self):
@@ -207,25 +211,15 @@ class TPUJob(Job):
         return buffer.getvalue()
 
     def upload(self):
-        print(f"Uploading {self.tpu.bucket}/{self.trainer_path}")
-        _upload_data_to_gcs(
-            "gs://" + self.tpu.bucket, self.trainer_path, self.trainer.serialize()
-        )
-        print(f"Uploading {self.tpu.bucket}/{self.training_state_path}")
-        _upload_data_to_gcs(
-            "gs://" + self.tpu.bucket,
-            self.training_state_path,
-            self.training_state.serialize(),
-        )
         _upload_data_to_gcs(
             "gs://" + self.tpu.bucket, self.tpu_job_path, self.serialize(),
         )
         print(f"Uploading {self.tpu.bucket}/{self.tpu_job_path}")
 
-    def get_trainer_and_trainstate(self):
-        trainer_buff = _read_blob_gcs(self.tpu.bucket, self.trainer_path)
-        state_buff = _read_blob_gcs(self.tpu.bucket, self.training_state_path)
-        return trainer_buff, state_buff
+    # def get_trainer_and_trainstate(self):
+    #     trainer_buff = _read_blob_gcs(self.tpu.bucket, self.trainer_path)
+    #     state_buff = _read_blob_gcs(self.tpu.bucket, self.training_state_path)
+    #     return trainer_buff, state_buff
 
     @property
     def preempted(self):
