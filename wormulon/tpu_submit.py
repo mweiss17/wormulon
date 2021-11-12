@@ -2,22 +2,8 @@
 import time
 import subprocess
 from typing import List
-from wormulon.utils import _upload_data_to_gcs
-
-
-def execute(command):
-    process = subprocess.Popen(command, stdout=subprocess.PIPE)
-    output, error = process.communicate()
-    return output, error
-
-
-def get_node_ids(zone="us-central1-f") -> List[int]:
-    command = f"gcloud alpha compute tpus list --zone={zone} --format=value[seperator=','](name)"
-    output, error = execute(command.split())
-    ids = output.decode("utf-8").split("\n")
-    ids.remove("")
-    int_ids = [int(i.split("-")[-1]) for i in ids]
-    return int_ids, error
+from wormulon.core import TPUJob
+from wormulon.utils import execute
 
 
 def create_tpu_node(
@@ -92,17 +78,11 @@ def check_preempted(node_id):
 def tpu_submit(
     train_cmd, network, subnetwork, network_range, tpu_type, preemptible, **kwargs,
 ):
-    node_ids, error = get_node_ids()
-    node_id = max(node_ids) + 1
 
     print(f"Currently, we have tpu nodes: {node_ids}, adding {node_id} now...")
 
     create_tpu_node(node_id, network, subnetwork, network_range, tpu_type, preemptible)
 
-    cmd = (
-        f"cd ~/; git clone https://github.com/mweiss17/polytax.git; "
-        f"pip install -e polytax[xla]; "
-    )
     output, error = run_ssh_cmd_on_tpu_node(node_id, cmd)
 
     output, error = run_ssh_cmd_on_tpu_node(node_id, train_cmd)
