@@ -1,6 +1,14 @@
+import io
+import torch
 import time
 import subprocess
-from wormulon.utils import JobStatus, execute, get_tpu_ids, _upload_data_to_gcs
+from wormulon.utils import (
+    JobStatus,
+    execute,
+    get_tpu_ids,
+    _upload_data_to_gcs,
+    _read_blob_gcs,
+)
 
 
 class Job:
@@ -163,9 +171,7 @@ class TPUJob(Job):
         self.last_heartbeat = time.time()
         self._trainer_path = None
         self._training_state_path = None
-        self.train_args = " ".join(
-            [self.tpu.bucket, self.trainer_path, self.training_state_path]
-        )
+        self.prefix = f"{self.experiment_directory}/{str(time.time())}"
 
     def __repr__(self):
         return "<TPUJob: {}>".format(self.job_id)
@@ -180,34 +186,46 @@ class TPUJob(Job):
         self.ssh(self.install_cmd)
 
     def train(self):
-        self.ssh(self.train_cmd + " " + self.train_args)
+        train_args = " ".join([self.tpu.bucket, self.tpu_job_path])
+        self.ssh(self.train_cmd + " " + train_args)
 
     @property
     def trainer_path(self):
-        if self._trainer_path is not None:
-            return self._trainer_path
-        prefix = f"{self.experiment_directory}/{str(time.time())}"
-        trainer_path = f"{prefix}/trainer.pt"
-        return trainer_path
+        return f"{self.prefix}/trainer.pt"
 
     @property
     def training_state_path(self):
-        if self._training_state_path is not None:
-            return self._training_state_path
-        prefix = f"{self.experiment_directory}/{str(time.time())}"
-        training_state_path = f"{prefix}/training_state.pt"
-        return training_state_path
+        return f"{self.prefix}/training_state.pt"
+
+    @property
+    def tpu_job_path(self):
+        return f"{self.prefix}/tpu_job.pt"
+
+    def serialize(self):
+        buffer = io.BytesIO()
+        torch.save(self, buffer)
+        return buffer.getvalue()
 
     def upload(self):
-        print(f"Uploading {self.tpu.bucket}/{self.training_state_path}")
+        print(f"Uploading {self.tpu.bucket}/{self.trainer_path}")
         _upload_data_to_gcs(
             "gs://" + self.tpu.bucket, self.trainer_path, self.trainer.serialize()
         )
+        print(f"Uploading {self.tpu.bucket}/{self.training_state_path}")
         _upload_data_to_gcs(
             "gs://" + self.tpu.bucket,
             self.training_state_path,
             self.training_state.serialize(),
         )
+        _upload_data_to_gcs(
+            "gs://" + self.tpu.bucket, self.tpu_job_path, self.serialize(),
+        )
+        print(f"Uploading {self.tpu.bucket}/{self.tpu_job_path}")
+
+    def get_trainer_and_trainstate(self):
+        trainer_buff = _read_blob_gcs(self.tpu.bucket, self.trainer_path)
+        state_buff = _read_blob_gcs(self.tpu.bucket, self.training_state_path)
+        return trainer_buff, state_buff
 
     @property
     def preempted(self):
@@ -215,10 +233,19 @@ class TPUJob(Job):
         command = f"gcloud compute tpus describe {self.tpu.name} --format=value(status)"
         output, error = execute(command.split())
         print(output)
+        breakpoint()
         if output == "PREEMPTED":
             return True
         else:
             return False
+
+    @property
+    def done(self):
+        pass
+
+    @property
+    def failed(self):
+        pass
 
     def wait(self):
         while True:
@@ -233,5 +260,5 @@ class TPUJob(Job):
                 return JobStatus.FAILED
             time.sleep(1)
 
-    def cleanup(self):
+    def clean_up(self):
         self.tpu.delete()
