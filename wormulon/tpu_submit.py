@@ -90,25 +90,10 @@ def check_preempted(node_id):
 
 
 def tpu_submit(
-    bucket,
-    experiment_directory,
-    trainer,
-    training_state,
-    network,
-    subnetwork,
-    network_range,
-    tpu_type,
-    preemptible,
-    **kwargs,
+    train_cmd, network, subnetwork, network_range, tpu_type, preemptible, **kwargs,
 ):
     node_ids, error = get_node_ids()
     node_id = max(node_ids) + 1
-    prefix = f"/{experiment_directory}/{str(time.time())}"
-    trainer_path = f"{prefix}/trainer.pt"
-    training_state_path = f"{prefix}/training_state.pt"
-    print(f"uploading training state and trainer to {prefix}.")
-    _upload_data_to_gcs(bucket, trainer_path, trainer.serialize())
-    _upload_data_to_gcs(bucket, training_state_path, training_state.serialize())
 
     print(f"Currently, we have tpu nodes: {node_ids}, adding {node_id} now...")
 
@@ -120,8 +105,7 @@ def tpu_submit(
     )
     output, error = run_ssh_cmd_on_tpu_node(node_id, cmd)
 
-    cmd = f"cd ~/polytax/src/polytax; python3 train.py {bucket} {trainer_path} {training_state_path} "
-    output, error = run_ssh_cmd_on_tpu_node(node_id, cmd)
+    output, error = run_ssh_cmd_on_tpu_node(node_id, train_cmd)
 
 
 #
