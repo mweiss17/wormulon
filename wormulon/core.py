@@ -12,10 +12,11 @@ from wormulon.utils import (
 
 
 class Job:
-    def __init__(self, job_id, command):
+    def __init__(self, job_id, command, timeout=60):
         self.job_id = job_id
         self.command = command
         self.last_heartbeat = time.time()
+        self.timeout = timeout
 
     def __repr__(self):
         return "<Job: {}>".format(self.job_id)
@@ -40,7 +41,7 @@ class Job:
             return self.last_heartbeat
 
     def get_status(self):
-        if self.last_heartbeat_at() > 30:
+        if self.last_heartbeat_at() > self.timeout:
             return JobStatus.FAILURE
         else:
             return JobStatus.SUCCESS
@@ -216,18 +217,13 @@ class TPUJob(Job):
         )
         print(f"Uploading {self.tpu.bucket}/{self.tpu_job_path}")
 
-    # def get_trainer_and_trainstate(self):
-    #     trainer_buff = _read_blob_gcs(self.tpu.bucket, self.trainer_path)
-    #     state_buff = _read_blob_gcs(self.tpu.bucket, self.training_state_path)
-    #     return trainer_buff, state_buff
-
     @property
     def preempted(self):
+        # TODO: check if preempted
         # command = f"gcloud compute operations list --filter=operationType=compute.instances.preempted"
         command = f"gcloud compute tpus describe {self.tpu.name} --format=value(status)"
         output, error = execute(command.split())
         print(output)
-        breakpoint()
         if output == "PREEMPTED":
             return True
         else:
@@ -235,10 +231,12 @@ class TPUJob(Job):
 
     @property
     def done(self):
+        # TODO implement (check if number of steps is reached)
         pass
 
     @property
     def failed(self):
+        # TODO implement by checking the heartbeat on the tpu
         pass
 
     def wait(self):
@@ -249,10 +247,10 @@ class TPUJob(Job):
             if self.done:
                 print("Done")
                 return JobStatus.DONE
-            if time.time() - self.last_heartbeat > 60:
+            if time.time() - self.last_heartbeat > self.timeout:
                 print("No heartbeat")
                 return JobStatus.FAILED
-            time.sleep(1)
+            time.sleep(10)
 
     def clean_up(self):
         self.tpu.delete()
