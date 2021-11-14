@@ -160,6 +160,7 @@ class TPUJob(Job):
         training_state,
         install_cmd,
         train_cmd,
+        timeout=3600,
     ):
         super().__init__(wandb_run_id, train_cmd)
         self.experiment_directory = experiment_directory
@@ -169,6 +170,7 @@ class TPUJob(Job):
         self.install_cmd = install_cmd
         self.train_cmd = train_cmd
         self.last_heartbeat = time.time()
+        self.timeout = timeout
 
     def __repr__(self):
         return "<TPUJob: {}>".format(self.job_id)
@@ -183,7 +185,7 @@ class TPUJob(Job):
         self.ssh(self.install_cmd)
 
     def train(self):
-        train_args = " ".join([self.tpu.bucket, self.tpu_job_path])
+        train_args = " ".join([self.tpu.bucket.name, self.tpu_job_path])
         self.ssh(self.train_cmd + " " + train_args)
 
     @property
@@ -246,15 +248,15 @@ class TPUJob(Job):
 
 
 class GCSBucket(object):
-    def __init__(self, bucket):
-        self.bucket = bucket
+    def __init__(self, name):
+        self.name = name
 
     def upload(self, path, data):
-        _upload_data_to_gcs(self.bucket, path, data)
-        print(f"Uploading {self.bucket}/{path}")
+        _upload_data_to_gcs(self.name, path, data)
+        print(f"Uploading {self.name}/{path}")
 
     def download(self, path):
-        return _read_blob_gcs(self.bucket, path)
+        return _read_blob_gcs(self.name, path)
 
     def exists(self, path):
-        return _check_exists_gcs(self.bucket, path)
+        return _check_exists_gcs(self.name, path)

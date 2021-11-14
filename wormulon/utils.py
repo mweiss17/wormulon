@@ -24,10 +24,10 @@ class JobStatus:
             return "UNKNOWN"
 
 
-def _upload_data_to_gcs(bucket, remote_file_path, data):
+def _upload_data_to_gcs(bucket_name, remote_file_path, data):
     """Uploads a blob to GCS bucket"""
     client = storage.Client()
-    blob = storage.blob.Blob.from_string(bucket + "/" + remote_file_path)
+    blob = storage.blob.Blob.from_string("gs://" + bucket_name + "/" + remote_file_path)
     blob.bucket._client = client
     blob.upload_from_string(data)
 
