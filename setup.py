@@ -13,7 +13,6 @@ setup(
     entry_points={
         "console_scripts": [
             "submit = wormulon.submit:main",
-            "tpu_submit = wormulon.tpu_submit:tpu_submit",
             "salvo = wormulon.salvo:fire",
         ],
     },

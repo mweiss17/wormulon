@@ -8,6 +8,7 @@ from wormulon.utils import (
     get_tpu_ids,
     _upload_data_to_gcs,
     _read_blob_gcs,
+    _check_exists_gcs,
 )
 
 
@@ -80,7 +81,7 @@ class TPU(Node):
     def __init__(
         self, bucket, zone, network, subnet, netrange, acc_type, preemptible, asynch,
     ):
-        self.bucket = bucket
+        self.bucket = GCSBucket(bucket)
         self.zone = zone
         self.network = network
         self.subnet = subnet
@@ -93,12 +94,10 @@ class TPU(Node):
         self.name = f"node-{max(node_ids) + 1}"
 
     def delete(self):
-        print(f"deleting: {self.name}")
-        command = (
-            f"gcloud compute tpus tpu-vm delete {self.name} --zone {self.zone} --async"
+        return
+        return execute(
+            f"gcloud alpha compute tpus tpu-vm delete {self.name} --zone {self.zone}".split()
         )
-        output, error = execute(command.split())
-        return output, error
 
     def create(self, retry=True):
         # If it's asynchronous, we can't retry (otherwise Google will be sad)
@@ -154,7 +153,7 @@ class TPU(Node):
 class TPUJob(Job):
     def __init__(
         self,
-        job_id,
+        wandb_run_id,
         experiment_directory,
         tpu,
         trainer,
@@ -162,7 +161,7 @@ class TPUJob(Job):
         install_cmd,
         train_cmd,
     ):
-        super().__init__(job_id, train_cmd)
+        super().__init__(wandb_run_id, train_cmd)
         self.experiment_directory = experiment_directory
         self.tpu = tpu
         self.trainer = trainer
@@ -170,8 +169,6 @@ class TPUJob(Job):
         self.install_cmd = install_cmd
         self.train_cmd = train_cmd
         self.last_heartbeat = time.time()
-        self._trainer_path = None
-        self._training_state_path = None
 
     def __repr__(self):
         return "<TPUJob: {}>".format(self.job_id)
@@ -191,31 +188,23 @@ class TPUJob(Job):
 
     @property
     def prefix(self):
-        prefix = f"{self.experiment_directory}/e{self.training_state.epoch}_s{self.training_state.step}_t{str(time.time())}"
-        return prefix
-
-    @property
-    def trainer_path(self):
-        return f"{self.prefix}/trainer.pt"
-
-    @property
-    def training_state_path(self):
-        return f"{self.prefix}/training_state.pt"
+        self._prefix = f"{self.experiment_directory}/e{self.training_state.epoch}_s{self.training_state.step}"
+        return self._prefix
 
     @property
     def tpu_job_path(self):
-        return f"{self.prefix}/tpu_job.pt"
+        return f"{self.prefix}/{self.job_id}.pt"
+
+    def upload(self, overwrite=False):
+        if self.tpu.bucket.exists(self.tpu_job_path) and not overwrite:
+            print(f"{self.tpu_job_path} already exists")
+            return
+        self.tpu.bucket.upload(self.tpu_job_path, self.serialize())
 
     def serialize(self):
         buffer = io.BytesIO()
         torch.save(self, buffer)
         return buffer.getvalue()
-
-    def upload(self):
-        _upload_data_to_gcs(
-            "gs://" + self.tpu.bucket, self.tpu_job_path, self.serialize(),
-        )
-        print(f"Uploading {self.tpu.bucket}/{self.tpu_job_path}")
 
     @property
     def preempted(self):
@@ -254,3 +243,18 @@ class TPUJob(Job):
 
     def clean_up(self):
         self.tpu.delete()
+
+
+class GCSBucket(object):
+    def __init__(self, bucket):
+        self.bucket = bucket
+
+    def upload(self, path, data):
+        _upload_data_to_gcs(self.bucket, path, data)
+        print(f"Uploading {self.bucket}/{path}")
+
+    def download(self, path):
+        return _read_blob_gcs(self.bucket, path)
+
+    def exists(self, path):
+        return _check_exists_gcs(self.bucket, path)
