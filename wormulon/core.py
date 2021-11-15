@@ -171,6 +171,10 @@ class TPU(Node):
 
 
 class TPUJob(Job):
+
+    def from_buffer(cls, buffer):
+        return torch.load(buffer)
+
     def __init__(
         self,
         wandb_run_id,
@@ -203,6 +207,10 @@ class TPUJob(Job):
 
     def install(self):
         self.ssh(self.install_cmd)
+
+    def beat_heart(self):
+        self.tpu.bucket.
+
 
     def train(self):
         train_args = " ".join([self.tpu.bucket.name, self.tpu_job_path])
