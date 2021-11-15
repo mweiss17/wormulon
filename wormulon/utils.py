@@ -9,6 +9,9 @@ class JobStatus:
     SUCCESS = 1
     FAILURE = 2
     ABORTED = 3
+    TIMEOUT = 4
+    STARTING = 5
+    PREEMPTED = 6
 
     @staticmethod
     def to_string(status):

@@ -79,7 +79,7 @@ class Node(object):
 
 class TPU(Node):
     def __init__(
-        self, bucket, zone, network, subnet, netrange, acc_type, preemptible, asynch,
+        self, bucket, zone, network, subnet, netrange, acc_type, preemptible, name=None
     ):
         self.bucket = GCSBucket(bucket)
         self.zone = zone
@@ -88,10 +88,14 @@ class TPU(Node):
         self.netrange = netrange
         self.acc_type = acc_type
         self.preemptible = preemptible
-        self.asynch = asynch
         self.history = []
-        node_ids, error = get_tpu_ids()
-        self.name = f"node-{max(node_ids) + 1}"
+        self._wandb_api_key = None
+
+        if name is not None:
+            self.name = name
+        else:
+            node_ids, error = get_tpu_ids()
+            self.name = f"node-{max(node_ids) + 1}"
 
     def delete(self):
         return
@@ -100,8 +104,7 @@ class TPU(Node):
         )
 
     def create(self, retry=True):
-        # If it's asynchronous, we can't retry (otherwise Google will be sad)
-        while True and not self.asynch:
+        while True:
             command = f"gcloud alpha compute tpus tpu-vm create {self.name} \
               --zone {self.zone} \
               --network {self.network} \
@@ -112,8 +115,6 @@ class TPU(Node):
 
             if self.preemptible:
                 command += " --preemptible"
-            if self.asynch:
-                command += " --async"
 
             output, error = execute(command.split())
             if error:
@@ -127,17 +128,37 @@ class TPU(Node):
                 return output, error
         return output, error
 
-    def ssh(self, cmd):
+    @property
+    def wandb_api_key(self):
+        if not self._wandb_api_key:
+            self._wandb_api_key, err = self.ssh(
+                "curl http://metadata.google.internal/computeMetadata/v1/project/attributes/wandb_api_key -H Metadata-Flavor:Google",
+                use_env=False,
+            )
+            self._wandb_api_key = self._wandb_api_key.decode("utf-8").strip()
+        return self._wandb_api_key
+
+    @property
+    def env(self):
+        env = ""
+        env += 'XRT_TPU_CONFIG="localservice;0;localhost:51011";'
+        env += "PATH=$PATH:/home/$USER/.local/bin;"
+        env += f"WANDB_API_KEY={self.wandb_api_key};"
+        env += "unset LD_PRELOAD;"
+
+        return env
+
+    def ssh(self, cmd, use_env=True):
         command = (
             f"gcloud alpha compute tpus tpu-vm ssh "
             f"{self.name} "
             f"--zone {self.zone} "
             f"--command "
         )
-
         command = command.split()
+        if use_env:
+            cmd = self.env + cmd
         command.append(cmd)
-
         print(f"running: {command} on {self.name}")
 
         output, error = execute(command)
@@ -209,6 +230,19 @@ class TPUJob(Job):
         return buffer.getvalue()
 
     @property
+    def status(self):
+        if self.last_heartbeat + self.timeout < time.time():
+            return JobStatus.TIMEOUT
+        elif self.last_heartbeat + self.timeout > time.time() + 60:
+            return JobStatus.RUNNING
+        elif self.last_heartbeat + self.timeout > time.time() + 30:
+            return JobStatus.STARTING
+        elif self.preempted:
+            return JobStatus.PREEMPTED
+        else:
+            return JobStatus.FAILURE
+
+    @property
     def preempted(self):
         # TODO: check if preempted
         # command = f"gcloud compute operations list --filter=operationType=compute.instances.preempted"
@@ -260,3 +294,19 @@ class GCSBucket(object):
 
     def exists(self, path):
         return _check_exists_gcs(self.name, path)
+
+
+class TPUCluster(object):
+    def __init__(self, bucket, zone):
+        self.bucket = bucket
+        self.zone = zone
+        self.tpus = self.get_all_tpus()
+
+    def get_all_tpus(self):
+        command = f"gcloud compute tpus list --format=value(name)"
+        output, error = execute(command.split())
+        tpus = output.decode("utf-8").strip().split("\n")
+        return tpus
+
+    def get_inactive_tpus(self):
+        return [tpu for tpu in self.tpus if tpu.status != "RUNNING"]
