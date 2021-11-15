@@ -16,7 +16,6 @@ class Job:
     def __init__(self, job_id, command, timeout=60):
         self.job_id = job_id
         self.command = command
-        self.last_heartbeat = time.time()
         self.timeout = timeout
 
     def __repr__(self):
@@ -171,9 +170,6 @@ class TPU(Node):
 
 
 class TPUJob(Job):
-    def from_buffer(cls, buffer):
-        return torch.load(buffer)
-
     def __init__(
         self,
         wandb_run_id,
@@ -192,7 +188,6 @@ class TPUJob(Job):
         self.training_state = training_state
         self.install_cmd = install_cmd
         self.train_cmd = train_cmd
-        self.last_heartbeat = time.time()
         self.timeout = timeout
 
     def __repr__(self):
@@ -206,10 +201,6 @@ class TPUJob(Job):
 
     def install(self):
         self.ssh(self.install_cmd)
-
-    def beat_heart(self):
-        data = torch.dumps({"last_heartbeat": time.time()})
-        self.tpu.bucket.upload(self.prefix + ".pt", data)
 
     def train(self):
         train_args = " ".join([self.tpu.bucket.name, self.tpu_job_path])
@@ -234,6 +225,15 @@ class TPUJob(Job):
         buffer = io.BytesIO()
         torch.save(self, buffer)
         return buffer.getvalue()
+
+    def beat_heart(self):
+        data = torch.dumps({"last_heartbeat": time.time()})
+        self.tpu.bucket.upload(self.prefix + "heartbeat.pt", data)
+
+    @property
+    def last_heartbeat(self):
+        self.tpu.bucket.download(self.prefix + "heartbeat.pt", self.prefix + ".pt")
+        return time.time()
 
     @property
     def status(self):
