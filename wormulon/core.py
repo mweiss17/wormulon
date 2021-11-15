@@ -171,7 +171,6 @@ class TPU(Node):
 
 
 class TPUJob(Job):
-
     def from_buffer(cls, buffer):
         return torch.load(buffer)
 
@@ -209,8 +208,8 @@ class TPUJob(Job):
         self.ssh(self.install_cmd)
 
     def beat_heart(self):
-        self.tpu.bucket.
-
+        data = torch.dumps({"last_heartbeat": time.time()})
+        self.tpu.bucket.upload(self.prefix + ".pt", data)
 
     def train(self):
         train_args = " ".join([self.tpu.bucket.name, self.tpu_job_path])
