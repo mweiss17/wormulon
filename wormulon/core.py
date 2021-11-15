@@ -226,14 +226,14 @@ class TPUJob(Job):
         torch.save(self, buffer)
         return buffer.getvalue()
 
-    def beat_heart(self):
+    def beat(self):
         data = torch.dumps({"last_heartbeat": time.time()})
         self.tpu.bucket.upload(self.prefix + "heartbeat.pt", data)
 
     @property
     def last_heartbeat(self):
-        self.tpu.bucket.download(self.prefix + "heartbeat.pt", self.prefix + ".pt")
-        return time.time()
+        data = torch.load(self.tpu.bucket.download(self.prefix + "heartbeat.pt"))
+        return data["last_heartbeat"]
 
     @property
     def status(self):
