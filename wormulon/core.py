@@ -140,10 +140,9 @@ class TPU(Node):
 
     @property
     def env(self):
-        env = ""
-        env += 'XRT_TPU_CONFIG="localservice;0;localhost:51011";'
-        env += "PATH=$PATH:/home/$USER/.local/bin;"
-        env += f"WANDB_API_KEY={self.wandb_api_key};"
+        env = 'export XRT_TPU_CONFIG="localservice;0;localhost:51011";'
+        env += "export PATH=$PATH:/home/$USER/.local/bin;"
+        env += f"export WANDB_API_KEY={self.wandb_api_key};"
         env += "unset LD_PRELOAD;"
 
         return env
@@ -253,16 +252,6 @@ class TPUJob(Job):
             return True
         else:
             return False
-
-    @property
-    def done(self):
-        # TODO implement (check if number of steps is reached)
-        pass
-
-    @property
-    def failed(self):
-        # TODO implement by checking the heartbeat on the tpu
-        pass
 
     def wait(self):
         while True:
