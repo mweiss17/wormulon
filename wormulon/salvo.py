@@ -19,6 +19,7 @@ except ImportError:
     from wormulon.core import Job
     from wormulon.utils import JobStatus
 
+
 class Salvo(object):
     def __init__(self):
         self.executor = None
@@ -33,6 +34,25 @@ class Salvo(object):
         self._script_args = None
         self._param_generator_path = None
         self._param_generator_args = None
+
+    def _build_executor(self, experiment_directory):
+        # create the submitit executor for creating and managing jobs
+        executor = submitit.AutoExecutor(
+            folder=os.path.join(experiment_directory, "Logs")
+        )
+
+        # setup the executor parameters based on the cluster location
+        if executor.cluster == "slurm":
+            executor.update_parameters(
+                mem_gb=self.get_salvo_arg("mem_gb", 16),
+                cpus_per_task=self.get_salvo_arg("cpus_per_task", 12),
+                timeout_min=self.get_salvo_arg("timeout_min", 1000),
+                tasks_per_node=1,
+                nodes=1,
+                slurm_partition=self.get_salvo_arg("slurm_partition", "long"),
+                gres=self.get_salvo_arg("gres", "gpu:rtx8000:1"),
+            )
+        return executor
 
     @property
     def argv(self):
@@ -148,9 +168,9 @@ class Salvo(object):
         else:
             return False
 
-    def get_salvo_arg(self, flag):
+    def get_salvo_arg(self, flag, default=None):
         if not self.in_salvo_arg_block(flag):
-            return None
+            return default
         arg_idx = self.salvo_arg_block.index(flag) + 1
         return self.salvo_arg_block[arg_idx]
 
@@ -163,27 +183,21 @@ class Salvo(object):
         return self.in_salvo_arg_block("--use-abs-path")
 
     def get_generator(self):
-        return run_path(os.path.join(pathlib.Path(__file__).parent.resolve(), self.param_generator_path))["generator"](self.param_generator_args)
-
-    def set_it_up(self, experiment_directory):
-        # create the submitit executor for creating and managing jobs
-        executor = submitit.AutoExecutor(folder=os.path.join(experiment_directory, "Logs"))
-
-        # setup the executor parameters based on the cluster location
-        if executor.cluster == "slurm":
-            executor.update_parameters(
-                mem_gb=16,
-                cpus_per_task=12,
-                timeout_min=1000,
-                tasks_per_node=1,
-                nodes=1,
-                slurm_partition="long",
-                gres="gpu:rtx8000:1",
+        return run_path(
+            os.path.join(
+                pathlib.Path(__file__).parent.resolve(), self.param_generator_path
             )
-        return executor
+        )["generator"](self.param_generator_args)
 
-
-    def launch_one_job(self, job_idx, kwargs, script_path, template_args, is_dry_run=False, use_abs_path=False):
+    def launch_one_job(
+        self,
+        job_idx,
+        kwargs,
+        script_path,
+        template_args,
+        is_dry_run=False,
+        use_abs_path=False,
+    ):
 
         job_kwargs = {"job_idx": job_idx, "uuid": uuid.uuid4().hex, **kwargs}
         script_args = [arg.format(**job_kwargs) for arg in template_args]
@@ -203,7 +217,7 @@ class Salvo(object):
             command = ["python3", script_path, *script_args]
             # Setup Submitit
             if self.executor is None:
-                self.executor = self.set_it_up(script_args[0])
+                self.executor = self._build_executor(script_args[0])
             job = self.executor.submit(CommandFunction(command))
 
         job_info = {
@@ -222,7 +236,14 @@ class Salvo(object):
 
         launched_jobs = []
         for job_idx, kwargs in enumerate(generator):
-            job_info = self.launch_one_job(job_idx, kwargs, self.script_path, template_args, is_dry_run=self.is_dry_run, use_abs_path=self.use_abs_path)
+            job_info = self.launch_one_job(
+                job_idx,
+                kwargs,
+                self.script_path,
+                template_args,
+                is_dry_run=self.is_dry_run,
+                use_abs_path=self.use_abs_path,
+            )
             launched_jobs.append(job_info)
         # Store launched jobs if required
         log_path = self.get_salvo_arg("--log")
@@ -288,14 +309,22 @@ class Salvo(object):
             self.launch()
 
 
-@click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
+@click.command(
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+)
 def fire():
     Salvo().fire()
 
-@click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
+
+@click.command(
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+)
 def nuke():
     Salvo().nuke()
 
-@click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
+
+@click.command(
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+)
 def snipe():
     Salvo().snipe()
