@@ -182,6 +182,7 @@ class TPU(Node):
         # Try to step into the job's directory and pull (in case it's old)
         if root_path is not None:
             self.ssh(f"cd {root_path} && git pull origin master")
+            self.ssh(f"cd {root_path} && pip install -e .")
             self.ssh("pkill -9 python3")
         # Install the job on the TPU
         self.ssh(job.install_cmd)
