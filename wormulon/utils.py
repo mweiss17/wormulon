@@ -76,5 +76,6 @@ def get_tpu_ids(zone="us-central1-f") -> List[int]:
     output, error = execute(command.split())
     ids = output.decode("utf-8").split("\n")
     ids.remove("")
-    int_ids = [int(i.split("-")[-1]) for i in ids]
+    int_ids = [-1]
+    int_ids.extend([int(i.split("-")[-1]) for i in ids])
     return int_ids, error

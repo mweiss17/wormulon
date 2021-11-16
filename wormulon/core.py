@@ -312,9 +312,11 @@ class TPUCluster(object):
         self.tpus = self.get_all_tpus()
         self._jobs = None
 
-    def get_available_tpu(self):
+    def get_available_tpu(self, run_id):
         unavailable_names = set()
         for job in self.jobs["running"]:
+            if run_id == job._attrs.get("name"):
+                continue  # skip this job
             unavailable_names.add(job.config.get("tpu_name"))
 
         # Find an available tpu
@@ -331,6 +333,8 @@ class TPUCluster(object):
         names = output.decode("utf-8").strip().split("\n")
         tpus = []
         for name in names:
+            if name == "":
+                continue
             tpus.append(TPU(name=name, **self.tpu_kwargs))
         return tpus
 
