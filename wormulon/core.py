@@ -1,7 +1,9 @@
 import io
 import torch
 import time
+import wandb
 import subprocess
+from collections import defaultdict
 from wormulon.utils import (
     JobStatus,
     execute,
@@ -9,6 +11,7 @@ from wormulon.utils import (
     _upload_data_to_gcs,
     _read_blob_gcs,
     _check_exists_gcs,
+    _delete_blob_gcs,
 )
 
 
@@ -78,9 +81,8 @@ class Node(object):
 
 class TPU(Node):
     def __init__(
-        self, bucket, zone, network, subnet, netrange, acc_type, preemptible, name=None
+        self, zone, network, subnet, netrange, acc_type, preemptible, name=None
     ):
-        self.bucket = GCSBucket(bucket)
         self.zone = zone
         self.network = network
         self.subnet = subnet
@@ -95,6 +97,7 @@ class TPU(Node):
         else:
             node_ids, error = get_tpu_ids()
             self.name = f"node-{max(node_ids) + 1}"
+            self.create()
 
     def delete(self):
         return
@@ -168,43 +171,46 @@ class TPU(Node):
         output, error = execute(command.split())
         return output.decode("utf-8").strip()
 
+    def run(self, job, root_path=None, overwrite=False):
+        # update the configuration on wandb noting this tpu's name
+        job.trainer._config["tpu_name"] = self.name
+        job.trainer.update_wandb_config()
+
+        # upload the job to GCP storage
+        job.upload(overwrite=overwrite)
+
+        # Try to step into the job's directory and pull (in case it's old)
+        if root_path is not None:
+            self.ssh(f"cd {root_path} && git pull origin master")
+            self.ssh("pkill -9 python3")
+        # Install the job on the TPU
+        self.ssh(job.install_cmd)
+        self.ssh(job.train_cmd)
+
 
 class TPUJob(Job):
     def __init__(
         self,
-        wandb_run_id,
+        job_id,
         experiment_directory,
-        tpu,
+        bucket,
         trainer,
         training_state,
         install_cmd,
         train_cmd,
         timeout=3600,
     ):
-        super().__init__(wandb_run_id, train_cmd)
+        super().__init__(job_id, train_cmd)
         self.experiment_directory = experiment_directory
-        self.tpu = tpu
+        self.bucket = GCSBucket(bucket)
         self.trainer = trainer
         self.training_state = training_state
         self.install_cmd = install_cmd
-        self.train_cmd = train_cmd
+        self.train_cmd = train_cmd + " " + self.path
         self.timeout = timeout
 
     def __repr__(self):
         return "<TPUJob: {}>".format(self.job_id)
-
-    def create(self):
-        self.tpu.create()
-
-    def ssh(self, cmd):
-        self.tpu.ssh(cmd)
-
-    def install(self):
-        self.ssh(self.install_cmd)
-
-    def train(self):
-        train_args = " ".join([self.tpu.bucket.name, self.tpu_job_path])
-        self.ssh(self.train_cmd + " " + train_args)
 
     @property
     def prefix(self):
@@ -212,14 +218,8 @@ class TPUJob(Job):
         return self._prefix
 
     @property
-    def tpu_job_path(self):
-        return f"{self.prefix}/{self.job_id}.pt"
-
-    def upload(self, overwrite=False):
-        if self.tpu.bucket.exists(self.tpu_job_path) and not overwrite:
-            print(f"{self.tpu_job_path} already exists")
-            return
-        self.tpu.bucket.upload(self.tpu_job_path, self.serialize())
+    def path(self):
+        return f"{self.prefix}_{self.trainer.get('dataset/kwargs/name')}.pt"
 
     def serialize(self):
         buffer = io.BytesIO()
@@ -228,11 +228,11 @@ class TPUJob(Job):
 
     def beat(self):
         data = torch.dumps({"last_heartbeat": time.time()})
-        self.tpu.bucket.upload(self.prefix + "heartbeat.pt", data)
+        self.bucket.upload(self.prefix + "heartbeat.pt", data)
 
     @property
     def last_heartbeat(self):
-        data = torch.load(self.tpu.bucket.download(self.prefix + "heartbeat.pt"))
+        data = torch.load(self.bucket.download(self.prefix + "heartbeat.pt"))
         return data["last_heartbeat"]
 
     @property
@@ -252,7 +252,7 @@ class TPUJob(Job):
     def preempted(self):
         # TODO: check if preempted
         # command = f"gcloud compute operations list --filter=operationType=compute.instances.preempted"
-        command = f"gcloud compute tpus describe {self.tpu.name} --format=value(status)"
+        command = f"gcloud compute tpus describe {self.name} --format=value(status)"
         output, error = execute(command.split())
         print(output)
         if output == "PREEMPTED":
@@ -274,14 +274,20 @@ class TPUJob(Job):
             time.sleep(10)
 
     def clean_up(self):
-        self.tpu.delete()
+        self.bucket.delete()
+
+    def upload(self, overwrite=False):
+        self.bucket.upload(self.path, self.serialize(), overwrite=overwrite)
 
 
 class GCSBucket(object):
     def __init__(self, name):
         self.name = name
 
-    def upload(self, path, data):
+    def upload(self, path, data, overwrite=False):
+        if self.exists(path) and not overwrite:
+            print(f"{path} already exists")
+            return
         _upload_data_to_gcs(self.name, path, data)
         print(f"Uploading {self.name}/{path}")
 
@@ -291,18 +297,60 @@ class GCSBucket(object):
     def exists(self, path):
         return _check_exists_gcs(self.name, path)
 
+    def delete(self, path):
+        _delete_blob_gcs(self.name, path)
+
 
 class TPUCluster(object):
-    def __init__(self, bucket, zone):
-        self.bucket = bucket
-        self.zone = zone
+    def __init__(self, wandb_entity, wandb_project, **kwargs):
+        self.wandb_entity = wandb_entity
+        self.wandb_project = wandb_project
+        self.bucket = kwargs.get("bucket")
+        self.zone = kwargs.get("zone")
+        self.tpu_kwargs = kwargs
         self.tpus = self.get_all_tpus()
+        self._jobs = None
+
+    def get_available_tpu(self):
+        unavailable_names = set()
+        for job in self.jobs["running"]:
+            unavailable_names.add(job.config.get("tpu_name"))
+
+        # Find an available tpu
+        for tpu in self.tpus:
+            if tpu.name not in unavailable_names:
+                return tpu
+
+        # otherwise return a new TPU
+        return TPU(**self.tpu_kwargs)
 
     def get_all_tpus(self):
         command = f"gcloud compute tpus list --format=value(name)"
         output, error = execute(command.split())
-        tpus = output.decode("utf-8").strip().split("\n")
+        names = output.decode("utf-8").strip().split("\n")
+        tpus = []
+        for name in names:
+            tpus.append(TPU(name=name, **self.tpu_kwargs))
         return tpus
 
-    def get_inactive_tpus(self):
-        return [tpu for tpu in self.tpus if tpu.status != "RUNNING"]
+    @property
+    def jobs(self):
+        if self._jobs is not None:
+            return self._jobs
+
+        api = wandb.Api()
+        runs = api.runs(self.wandb_entity + "/" + self.wandb_project)
+        jobs = defaultdict(list)
+
+        for run in runs:
+            jobs[run.state].append(run)
+        self._jobs = jobs
+        s = ""
+        for k, v in jobs.items():
+            s += f"{k}: {len(v)}, "
+        print(s)
+        return self._jobs
+
+    def run(self, job: TPUJob):
+        tpu = self.get_inactive_tpus()[0]
+        tpu.run(job)

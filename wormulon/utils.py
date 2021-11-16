@@ -58,6 +58,13 @@ def _check_exists_gcs(bucket, remote_file_path):
     return bucket.blob(remote_file_path).exists()
 
 
+def _delete_blob_gcs(bucket, remote_file_path):
+    """Downloads a file from GCS to local directory"""
+    client = storage.Client()
+    bucket = client.get_bucket(bucket)
+    return bucket.blob(remote_file_path).delete()
+
+
 def execute(command):
     process = subprocess.Popen(command, stdout=subprocess.PIPE)
     output, error = process.communicate()
