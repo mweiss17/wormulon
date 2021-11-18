@@ -152,7 +152,7 @@ class TPU(Node):
 
         return env
 
-    def ssh(self, cmd, use_env=True):
+    def ssh(self, cmd, use_env=True, synchronous=True, timeout=30):
         command = (
             f"gcloud alpha compute tpus tpu-vm ssh "
             f"{self.name} "
@@ -165,7 +165,7 @@ class TPU(Node):
         command.append(cmd)
         print(f"running: {command} on {self.name}")
 
-        output, error = execute(command)
+        output, error = execute(command, synchronous=synchronous, timeout=timeout)
         return output, error
 
     @property
@@ -173,6 +173,9 @@ class TPU(Node):
         command = f"gcloud compute tpus describe {self.name} --zone {self.zone} --format=value(networkInterfaces[0].networkIP)"
         output, error = execute(command.split())
         return output.decode("utf-8").strip()
+
+    def clean_up(self):
+        self.ssh("pkill -9 python3")
 
 
 class TPUJob(Job):
@@ -258,10 +261,6 @@ class TPUJob(Job):
             #     print("No heartbeat")
             #     return JobStatus.FAILED
             time.sleep(10)
-
-    def clean_up(self):
-        pass
-        # self.bucket.delete()
 
     def upload(self, overwrite=False):
         buffer = self.serialize()

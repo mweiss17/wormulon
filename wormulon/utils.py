@@ -65,9 +65,18 @@ def _delete_blob_gcs(bucket, remote_file_path):
     return bucket.blob(remote_file_path).delete()
 
 
-def execute(command):
+def execute(command, synchronous=True, timeout=30):
     process = subprocess.Popen(command, stdout=subprocess.PIPE)
-    output, error = process.communicate()
+    output, error = None, None
+
+    if synchronous:
+        output, error = process.communicate()
+    else:
+        try:
+            output, error = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            print(f"command took longer than {timeout} seconds to finish. Continuing.")
     return output, error
 
 
