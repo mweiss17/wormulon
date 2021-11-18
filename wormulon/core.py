@@ -16,9 +16,8 @@ from wormulon.utils import (
 
 
 class Job:
-    def __init__(self, job_id, command, timeout=60):
+    def __init__(self, job_id, timeout=60):
         self.job_id = job_id
-        self.command = command
         self.timeout = timeout
 
     def __repr__(self):
@@ -29,10 +28,6 @@ class Job:
 
     def nuke(self):
         pass
-
-    def run(self):
-        print("Running job {}".format(self.job_id))
-        self.command()
 
     def check(self):
         self.run()
@@ -119,7 +114,9 @@ class TPU(Node):
                 command += " --preemptible"
 
             output, error = execute(command.split())
-            if error:
+            print(f"error was: {error}")
+            if error is not None:
+                breakpoint()
                 print(f"Error creating TPU: {error}")
                 if retry:
                     time.sleep(5)
@@ -171,23 +168,6 @@ class TPU(Node):
         output, error = execute(command.split())
         return output.decode("utf-8").strip()
 
-    def run(self, job, root_path=None, overwrite=False):
-        # update the configuration on wandb noting this tpu's name
-        job.trainer._config["tpu_name"] = self.name
-        job.trainer.update_wandb_config()
-
-        # upload the job to GCP storage
-        job.upload(overwrite=overwrite)
-
-        # Try to step into the job's directory and pull (in case it's old)
-        if root_path is not None:
-            self.ssh(f"cd {root_path} && git pull origin master")
-            self.ssh(f"cd {root_path} && pip install -e .")
-            self.ssh("pkill -9 python3")
-        # Install the job on the TPU
-        self.ssh(job.install_cmd)
-        self.ssh(job.train_cmd)
-
 
 class TPUJob(Job):
     def __init__(
@@ -197,17 +177,13 @@ class TPUJob(Job):
         bucket,
         trainer,
         training_state,
-        install_cmd,
-        train_cmd,
         timeout=3600,
     ):
-        super().__init__(job_id, train_cmd)
+        super().__init__(job_id)
         self.experiment_directory = experiment_directory
         self.bucket = GCSBucket(bucket)
         self.trainer = trainer
         self.training_state = training_state
-        self.install_cmd = install_cmd
-        self.train_cmd = train_cmd + " " + self.path
         self.timeout = timeout
 
     def __repr__(self):
