@@ -1,7 +1,8 @@
 import io
+import yaml
 import subprocess
-from google.cloud import storage
-from typing import List
+from dataclasses import dataclass
+from addict import Dict
 
 
 class JobStatus:
@@ -27,44 +28,6 @@ class JobStatus:
             return "UNKNOWN"
 
 
-def _upload_data_to_gcs(bucket_name, remote_file_path, data):
-    """Uploads a blob to GCS bucket"""
-    client = storage.Client()
-    blob = storage.blob.Blob.from_string("gs://" + bucket_name + "/" + remote_file_path)
-    blob.bucket._client = client
-    blob.upload_from_string(data)
-
-
-def _read_blob_gcs(bucket, remote_file_path):
-    """Downloads a file from GCS to local directory"""
-    client = storage.Client()
-    bucket = client.get_bucket(bucket)
-    if remote_file_path.startswith("gs://"):
-        remote_file_path = remote_file_path[5:]
-    if remote_file_path.endswith("/"):
-        remote_file_path = remote_file_path[:-1]
-    if remote_file_path.startswith("/"):
-        remote_file_path = remote_file_path[1:]
-    blob = bucket.get_blob(remote_file_path)
-    bytes = blob.download_as_bytes()
-    buffer = io.BytesIO(bytes)
-    return buffer
-
-
-def _check_exists_gcs(bucket, remote_file_path):
-    """Downloads a file from GCS to local directory"""
-    client = storage.Client()
-    bucket = client.get_bucket(bucket)
-    return bucket.blob(remote_file_path).exists()
-
-
-def _delete_blob_gcs(bucket, remote_file_path):
-    """Downloads a file from GCS to local directory"""
-    client = storage.Client()
-    bucket = client.get_bucket(bucket)
-    return bucket.blob(remote_file_path).delete()
-
-
 def execute(command, synchronous=True, timeout=30):
     process = subprocess.Popen(command, stdout=subprocess.PIPE)
     output, error = None, None
@@ -80,11 +43,73 @@ def execute(command, synchronous=True, timeout=30):
     return output, error
 
 
-def get_tpu_ids(zone="us-central1-f") -> List[int]:
-    command = f"gcloud alpha compute tpus list --zone={zone} --format=value[seperator=','](name)"
-    output, error = execute(command.split())
-    ids = output.decode("utf-8").split("\n")
-    ids.remove("")
-    int_ids = [-1]
-    int_ids.extend([int(i.split("-")[-1]) for i in ids])
-    return int_ids, error
+class NotAvailable(object):
+    pass
+
+
+def is_instance(obj, cls):
+    # This is required because python's native isinstance might fail on
+    # deserialized objects.
+    return obj.__class__.__name__ == cls.__name__
+
+
+@dataclass
+class ExceptionInJob(object):
+    exception: str
+
+    @classmethod
+    def is_instance(cls, obj):
+        return is_instance(obj, cls)
+
+
+class JobFailure(object):
+    @classmethod
+    def is_instance(cls, obj):
+        return is_instance(obj, cls)
+
+
+class JobTimeout(object):
+    @classmethod
+    def is_instance(cls, obj):
+        return is_instance(obj, cls)
+
+
+def serialize(object_to_serialize):
+    try:
+        import torch_xla.core.xla_model as xm
+    except Exception:
+        import torch
+
+        xm = None
+
+    buffer = io.BytesIO()
+    if xm:
+        xm.save(object_to_serialize, buffer)
+    else:
+        torch.save(object_to_serialize, buffer)
+    return buffer.getvalue()
+
+
+def deserialize(buffer):
+    try:
+        import torch_xla.core.xla_model as xm
+    except Exception:
+        import torch
+
+        xm = None
+
+    if xm:
+        ob = xm.load(buffer)
+    else:
+        ob = torch.load(buffer)
+    return ob
+
+
+def dump_yaml(d: dict, path: str):
+    with open(path, "w") as f:
+        yaml.dump(d, f)
+
+
+def load_yaml(path: str):
+    with open(path, "r") as f:
+        return Dict(yaml.load(f, Loader=yaml.FullLoader))

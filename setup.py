@@ -9,7 +9,7 @@ setup(
     author_email="martin.clyde.weiss@gmail.com",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=["click", "rich", "submitit", "wandb", "numpy"],
+    install_requires=["click", "rich", "submitit", "wandb", "numpy", "stopit"],
     entry_points={
         "console_scripts": [
             "submit = wormulon.submit:main",
