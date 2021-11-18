@@ -248,19 +248,20 @@ class TPUJob(Job):
 
     def wait(self):
         while True:
-            if self.preempted:
-                print("Preempted")
-                return JobStatus.PREEMPTED
-            if self.done:
-                print("Done")
-                return JobStatus.DONE
-            if time.time() - self.last_heartbeat > self.timeout:
-                print("No heartbeat")
-                return JobStatus.FAILED
+            # if self.preempted:
+            #     print("Preempted")
+            #     return JobStatus.PREEMPTED
+            # if self.done:
+            #     print("Done")
+            #     return JobStatus.DONE
+            # if time.time() - self.last_heartbeat > self.timeout:
+            #     print("No heartbeat")
+            #     return JobStatus.FAILED
             time.sleep(10)
 
     def clean_up(self):
-        self.bucket.delete()
+        pass
+        # self.bucket.delete()
 
     def upload(self, overwrite=False):
         buffer = self.serialize()
