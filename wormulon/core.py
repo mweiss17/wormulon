@@ -4,6 +4,12 @@ import time
 import wandb
 import subprocess
 from collections import defaultdict
+
+try:
+    import torch_xla.core.xla_model as xm
+except Exception:
+    xm = None
+
 from wormulon.utils import (
     JobStatus,
     execute,
@@ -200,7 +206,10 @@ class TPUJob(Job):
 
     def serialize(self):
         buffer = io.BytesIO()
-        torch.save(self, buffer)
+        if xm:
+            xm.save(self, buffer)
+        else:
+            torch.save(self, buffer)
         return buffer.getvalue()
 
     def beat(self):
@@ -254,7 +263,9 @@ class TPUJob(Job):
         self.bucket.delete()
 
     def upload(self, overwrite=False):
-        self.bucket.upload(self.path, self.serialize(), overwrite=overwrite)
+        buffer = self.serialize()
+        if len(buffer) > 0:
+            self.bucket.upload(self.path, buffer, overwrite=overwrite)
 
 
 class GCSBucket(object):
