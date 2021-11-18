@@ -114,7 +114,7 @@ class TPU(Node):
               --subnetwork {self.subnet} \
               --range {self.netrange} \
               --accelerator-type {self.acc_type} \
-              --version v2-alpha"
+              --version tpu-vm-pt-1.10"
 
             if self.preemptible:
                 command += " --preemptible"
@@ -122,7 +122,6 @@ class TPU(Node):
             output, error = execute(command.split())
             print(f"error was: {error}")
             if error is not None:
-                breakpoint()
                 print(f"Error creating TPU: {error}")
                 if retry:
                     time.sleep(5)
