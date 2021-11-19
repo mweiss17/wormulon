@@ -6,7 +6,7 @@ try:
 except Exception:
     xm = None
 
-from wormulon.utils import JobStatus
+from wormulon.utils import JobState
 
 
 class Job:
@@ -34,9 +34,9 @@ class Job:
 
     def get_status(self):
         if self.last_heartbeat_at() > self.timeout:
-            return JobStatus.FAILURE
+            return JobState.FAILURE
         else:
-            return JobStatus.SUCCESS
+            return JobState.SUCCESS
 
 
 class SlurmJob(Job):
@@ -47,7 +47,7 @@ class SlurmJob(Job):
         print(f"Nuking job {self.job_id}")
         bash_command = "scancel {self.job_id}"
         process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
-        output, error = process.communicate()
+        output = process.communicate()
 
 
 class Node(object):

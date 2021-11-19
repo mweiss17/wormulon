@@ -1,12 +1,14 @@
 from argparse import ArgumentParser
 import wandb
 import os
+
 try:
     from raven.core import RavenJob as Job
-    from raven.utils import JobStatus
+    from raven.utils import JobState
 except ImportError:
     from wormulon.core import Job
-    from wormulon.utils import JobStatus
+    from wormulon.utils import JobState
+
 
 def parse_args(args: list):
     parsey = ArgumentParser()
@@ -101,9 +103,9 @@ def main(args: list):
         if args.running_jobs_only or args.not_running_jobs_only:
             if args.running_jobs_only:
                 # Criterion satisfied only if job is running
-                is_running_criterion = job.get_status() == JobStatus.RUNNING
+                is_running_criterion = job.get_status() == JobState.RUNNING
             else:
-                is_running_criterion = job.get_status() != JobStatus.RUNNING
+                is_running_criterion = job.get_status() != JobState.RUNNING
         else:
             # Criterion satisfied irrespective of whether job is running or not
             is_running_criterion = True

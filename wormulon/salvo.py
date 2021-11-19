@@ -14,10 +14,10 @@ from submitit.core.utils import CommandFunction
 
 try:
     from raven.core import RavenJob as Job
-    from raven.utils import JobStatus
+    from raven.utils import JobState
 except ImportError:
     from wormulon.core import Job
-    from wormulon.utils import JobStatus
+    from wormulon.utils import JobState
 
 
 class Salvo(object):

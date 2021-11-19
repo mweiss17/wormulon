@@ -4,6 +4,7 @@ import time
 from wormulon.utils import NotAvailable, ExceptionInJob, JobFailure, JobTimeout
 from dataclasses import dataclass
 from wormulon.fncall import FunctionCall
+from wormulon.bucket import Bucket
 from typing import Union, Any, Optional
 
 
@@ -12,26 +13,27 @@ class TPUHandler(object):
     # Required at instantiation
     job_id: str
     function_call: FunctionCall
-    executor_directory: str
+    experiment_directory: str
+    bucket: Bucket
     # Can be filled in later
-    tpu_job: "TPUJob" = None
     job_output: Union[Any, NotAvailable] = NotAvailable()
     has_timed_out: bool = False
 
     @classmethod
-    def instantiate(cls, executor_directory: str, function_call: FunctionCall):
+    def instantiate(
+        cls, bucket: Bucket, experiment_directory: str, function_call: FunctionCall
+    ):
         job_id = uuid.uuid4().hex
         return cls(
             job_id=job_id,
-            executor_directory=executor_directory,
+            bucket=bucket,
+            experiment_directory=experiment_directory,
             function_call=function_call,
         )
 
     @property
     def working_directory(self):
-        path = os.path.join(self.executor_directory, self.job_id)
-        if not os.path.exists(path):
-            os.makedirs(path)
+        path = os.path.join(self.experiment_directory, self.job_id)
         return path
 
     @property
@@ -56,20 +58,6 @@ class TPUHandler(object):
             configuration_path=self.function_call_configuration_path,
         )
         return self
-
-    def create_tpu_job(self, tpu_env_variables=None):
-        tpu_job = (
-            TPUJob()
-            .set_rc(rc)
-            .set_script_path(__file__)
-            .set_script_args([self.working_directory])
-            .add_env_variables(
-                RAVEN_EXECUTOR_WORKING_DIRECTORY=self.working_directory,
-                PYTHONPATH=os.getenv("PYTHONPATH", ""),
-                **(tpu_env_variables or {}),
-            )
-        )
-        return tpu_job
 
     @property
     def output_is_ready(self):
@@ -140,13 +128,13 @@ class TPUHandler(object):
             self.raven_job.nuke()
         return self
 
-    def launch(self, rc=None, verbose=True, raven_env_variables=None):
+    def create_tpu_job(self):
+        pass
+
+    def launch(self, tpu):
         # Dump the function call somewhere the runner can find.
-        self.serialize_function_call()
-        self.raven_job = self.create_raven_job(
-            rc=rc, raven_env_variables=raven_env_variables
-        )
-        self.raven_job.launch(verbose=verbose)
+        job = self.create_tpu_job()
+        tpu.run(job)
         return self
 
     def request_exit(self):

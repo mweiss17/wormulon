@@ -1,7 +1,7 @@
 import traceback
 import stopit
-from typing import Callable, Union, Any, field,
-from dataclasses import dataclass
+from typing import Callable, Union, Any
+from dataclasses import dataclass, field
 from contextlib import suppress
 from wormulon.utils import (
     NotAvailable,

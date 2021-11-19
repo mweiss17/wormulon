@@ -1,18 +1,33 @@
 import io
-
+from collections import defaultdict
 from google.cloud import storage
+from wormulon.utils import JobState
 
 
 class Bucket(object):
     def __init__(self, name):
         self.name = name
 
-    def list(self, filter=""):
+    def list(self, filter: str):
         storage_client = storage.Client()
         blobs = storage_client.list_blobs(self.name)
         if filter:
             blobs = [blob for blob in blobs if filter in blob.name]
         return blobs
+
+    def list_jobs(self, filter: JobState, limit: int = None, verbose: bool = True):
+        results = defaultdict(list)
+        jobs = self.list(filter="job")
+        for job in jobs:
+            results[job.state].append(job)
+
+        if verbose:
+            s = ""
+            for k, v in results.items():
+                s += f"{k}: {len(v)}, "
+            print(s)
+
+        return results[filter][:limit]
 
     def upload(self, path, data, overwrite=False):
         """Uploads a blob to GCS bucket"""

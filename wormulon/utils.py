@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from addict import Dict
 
 
-class JobStatus:
+class JobState:
     RUNNING = 0
     SUCCESS = 1
     FAILURE = 2
@@ -16,31 +16,27 @@ class JobStatus:
 
     @staticmethod
     def to_string(status):
-        if status == JobStatus.RUNNING:
+        if status == JobState.RUNNING:
             return "RUNNING"
-        elif status == JobStatus.SUCCESS:
+        elif status == JobState.SUCCESS:
             return "SUCCESS"
-        elif status == JobStatus.FAILURE:
+        elif status == JobState.FAILURE:
             return "FAILURE"
-        elif status == JobStatus.ABORTED:
+        elif status == JobState.ABORTED:
             return "ABORTED"
         else:
             return "UNKNOWN"
 
 
-def execute(command, synchronous=True, timeout=30):
-    process = subprocess.Popen(command, stdout=subprocess.PIPE)
-    output, error = None, None
-
-    if synchronous:
-        output, error = process.communicate()
-    else:
-        try:
-            output, error = process.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            print(f"command took longer than {timeout} seconds to finish. Continuing.")
-    return output, error
+def execute(command, timeout=300, capture_output=False):
+    try:
+        output = subprocess.run(
+            command, capture_output=True, timeout=timeout, check=True
+        )
+    except subprocess.TimeoutExpired:
+        print(f"command took longer than {timeout} seconds to finish. Continuing.")
+        output = None
+    return output
 
 
 class NotAvailable(object):

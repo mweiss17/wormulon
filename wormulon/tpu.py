@@ -8,8 +8,18 @@ from wormulon.tpu_handler import TPUHandler
 
 class TPU(Node):
     def __init__(
-        self, zone, network, subnet, netrange, acc_type, preemptible, bucket, name=None
+        self,
+        name,
+        zone,
+        network,
+        subnet,
+        netrange,
+        acc_type,
+        preemptible,
+        bucket,
+        project,
     ):
+        self.name = name
         self.zone = zone
         self.network = network
         self.subnet = subnet
@@ -17,31 +27,16 @@ class TPU(Node):
         self.acc_type = acc_type
         self.preemptible = preemptible
         self.bucket = bucket
-        self._wandb_api_key = None
+        self._job_handlers = []
 
-        if name is not None:
-            self.name = name
-        else:
-            node_ids, error = self.get_tpu_ids()
-            self.name = f"node-{max(node_ids) + 1}"
-            self.create()
-
-    def submit(self, fn: FunctionCall, *args, **kwargs):
-        handler = JobHandler.instantiate(
-            executor_directory=self.executor_directory,
+    def submit(self, experiment_directory: str, fn: FunctionCall, *args, **kwargs):
+        handler = TPUHandler.instantiate(
+            bucket=self.bucket,
+            experiment_directory=experiment_directory,
             function_call=FunctionCall(fn, args, kwargs),
         )
         self._job_handlers.append(handler)
-        return handler.launch(rc=self.rc, verbose=self.verbose,)
-
-    def get_tpu_ids(self):
-        command = f"gcloud alpha compute tpus list --zone={self.zone} --format=value[seperator=','](name)"
-        output, error = execute(command.split())
-        ids = output.decode("utf-8").split("\n")
-        ids.remove("")
-        int_ids = [-1]
-        int_ids.extend([int(i.split("-")[-1]) for i in ids])
-        return int_ids, error
+        return handler.launch(self)
 
     def delete(self):
         return execute(
@@ -61,39 +56,18 @@ class TPU(Node):
             if self.preemptible:
                 command += " --preemptible"
 
-            output, error = execute(command.split())
-            print(f"error was: {error}")
-            if error is not None:
-                print(f"Error creating TPU: {error}")
-                if retry:
-                    time.sleep(5)
-                    continue
-                else:
-                    return output, error
+            output = execute(command.split())
+            breakpoint()
+            if output.returncode == 0:
+                return output
             else:
-                return output, error
-        return output, error
+                if retry:
+                    time.sleep(10)
+                else:
+                    return output
+        return output
 
-    @property
-    def wandb_api_key(self):
-        if not self._wandb_api_key:
-            self._wandb_api_key, err = self.ssh(
-                "curl http://metadata.google.internal/computeMetadata/v1/project/attributes/wandb_api_key -H Metadata-Flavor:Google",
-                use_env=False,
-            )
-            self._wandb_api_key = self._wandb_api_key.decode("utf-8").strip()
-        return self._wandb_api_key
-
-    @property
-    def env(self):
-        env = 'export XRT_TPU_CONFIG="localservice;0;localhost:51011";'
-        env += "export PATH=$PATH:/home/$USER/.local/bin;"
-        env += f"export WANDB_API_KEY={self.wandb_api_key};"
-        env += "unset LD_PRELOAD;"
-
-        return env
-
-    def ssh(self, cmd, use_env=True, synchronous=True, timeout=30):
+    def ssh(self, cmd, env_stmts=[], synchronous=True, timeout=30):
         command = (
             f"gcloud alpha compute tpus tpu-vm ssh "
             f"{self.name} "
@@ -101,19 +75,19 @@ class TPU(Node):
             f"--command "
         )
         command = command.split()
-        if use_env:
-            cmd = self.env + cmd
+        for env_stmt in env_stmts:
+            cmd = env_stmt + cmd
         command.append(cmd)
         print(f"running: {command} on {self.name}")
 
-        output, error = execute(command, synchronous=synchronous, timeout=timeout)
-        return output, error
+        output = execute(command, timeout=timeout)
+        return output
 
     @property
     def internal_ip(self):
         command = f"gcloud compute tpus describe {self.name} --zone {self.zone} --format=value(networkInterfaces[0].networkIP)"
-        output, error = execute(command.split())
-        return output.decode("utf-8").strip()
+        output = execute(command.split())
+        return output.stdout.decode("utf-8").strip()
 
     def clean_up(self):
         self.ssh("pkill -9 python3")
