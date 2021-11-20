@@ -28,15 +28,20 @@ class JobState:
             return "UNKNOWN"
 
 
-def execute(command, timeout=300, capture_output=False):
+def execute(command, timeout=300, capture_output=True):
     try:
         output = subprocess.run(
-            command, capture_output=True, timeout=timeout, check=True
+            command, capture_output=capture_output, timeout=timeout, check=True
         )
-    except subprocess.TimeoutExpired:
-        print(f"command took longer than {timeout} seconds to finish. Continuing.")
-        output = None
-    return output
+        return output.stdout.decode("utf-8"), output.stderr.decode("utf-8"), 0
+
+    except subprocess.TimeoutExpired as e:
+        print(
+            f"command failed with {e}, taking longer than {timeout} seconds to finish."
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"command failed with exit code {e.returncode}, {e.stderr}")
+    return ("", "", 1)
 
 
 class NotAvailable(object):

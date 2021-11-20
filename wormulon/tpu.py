@@ -56,18 +56,16 @@ class TPU(Node):
             if self.preemptible:
                 command += " --preemptible"
 
-            output = execute(command.split())
-            breakpoint()
-            if output.returncode == 0:
-                return output
+            stdout, stderr, retcode = execute(command.split())
+            if retcode == 0:
+                return stdout
             else:
                 if retry:
                     time.sleep(10)
                 else:
-                    return output
-        return output
+                    return stderr
 
-    def ssh(self, cmd, env_stmts=[], synchronous=True, timeout=30):
+    def ssh(self, cmd, env_stmts=[], synchronous=True, timeout=None):
         command = (
             f"gcloud alpha compute tpus tpu-vm ssh "
             f"{self.name} "
@@ -78,16 +76,15 @@ class TPU(Node):
         for env_stmt in env_stmts:
             cmd = env_stmt + cmd
         command.append(cmd)
-        print(f"running: {command} on {self.name}")
 
-        output = execute(command, timeout=timeout)
-        return output
+        stdout, stderr, retcode = execute(command, timeout=timeout)
+        return stdout
 
     @property
     def internal_ip(self):
         command = f"gcloud compute tpus describe {self.name} --zone {self.zone} --format=value(networkInterfaces[0].networkIP)"
-        output = execute(command.split())
-        return output.stdout.decode("utf-8").strip()
+        stdout, stderr, retcode = execute(command.split())
+        return stdout
 
     def clean_up(self):
         self.ssh("pkill -9 python3")

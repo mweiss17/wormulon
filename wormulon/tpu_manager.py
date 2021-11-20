@@ -31,8 +31,8 @@ class TPUManager(object):
 
     def get_all_tpus(self):
         command = f"gcloud compute tpus list --format=value(name) --zone {self.zone}"
-        output = execute(command.split())
-        names = output.stdout.decode("utf-8").strip().split("\n")
+        stdout, stderr, retcode = execute(command.split())
+        names = stdout.split("\n")
         tpus = []
         for name in names:
             if name == "":
@@ -42,8 +42,8 @@ class TPUManager(object):
 
     def get_tpu_ids(self):
         command = f"gcloud alpha compute tpus list --zone={self.zone} --format=value[seperator=','](name)"
-        output = execute(command.split())
-        ids = output.stdout.decode("utf-8").split("\n")
+        stdout, stderr, retcode = execute(command.split())
+        ids = stdout.split("\n")
         ids.remove("")
         int_ids = [-1]
         int_ids.extend([int(i.split("-")[-1]) for i in ids])
@@ -66,12 +66,7 @@ class TPUManager(object):
             tpu.ssh(cmd, job.env_stmts)
         tpu.ssh(job.install_cmd, job.env_stmts)
 
-        tpu.ssh(job.train_cmd, job.env_stmts)
-
-        tpu.ssh(job.install_cmd)
-
-        train_cmd = f" {self.bucket} {job.path}"
-        tpu.ssh(train_cmd, synchronous=False, timeout=15)
+        tpu.ssh(f"{job.train_cmd} {self.bucket.name} {job.path}")
 
 
 class TPUJob(object):

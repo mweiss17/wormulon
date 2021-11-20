@@ -8,13 +8,10 @@ import torch_xla.distributed.xla_multiprocessing as xmp
 
 
 class JobRunner(object):
-    def __init__(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument("bucket", type=str)
-        parser.add_argument("directory", type=str)
-        args = parser.parse_args()
-        self.bucket = Bucket(args.args.bucket)
-        self.directory = args.directory
+    def __init__(self, bucket_name, directory):
+        self.bucket = Bucket(bucket_name)
+        self.directory = directory
+        self.run()
 
     @property
     def fn_call_path(self):
@@ -76,4 +73,4 @@ class JobRunner(object):
         # Accquire the file lock and serialize
         # function_call.serialize_outputs(path=self.function_output_serialization_path)
         # Print and exit
-        self.print_pre_exit_info(trainer)
+        # self.print_pre_exit_info(trainer)
