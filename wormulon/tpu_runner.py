@@ -5,8 +5,14 @@ from wormulon.bucket import Bucket
 from wormulon.utils import ExceptionInJob, JobFailure
 from wormulon.fncall import FunctionCall
 import torch_xla.distributed.xla_multiprocessing as xmp
+import click
 
 
+@click.command(
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+)
+@click.argument("bucket_name")
+@click.argument("directory")
 class JobRunner(object):
     def __init__(self, bucket_name, directory):
         self.bucket = Bucket(bucket_name)
