@@ -8,16 +8,10 @@ import torch_xla.distributed.xla_multiprocessing as xmp
 import click
 
 
-@click.command(
-    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
-)
-@click.argument("bucket_name")
-@click.argument("directory")
 class JobRunner(object):
     def __init__(self, bucket_name, directory):
         self.bucket = Bucket(bucket_name)
         self.directory = directory
-        self.run()
 
     @property
     def fn_call_path(self):
@@ -80,3 +74,12 @@ class JobRunner(object):
         # function_call.serialize_outputs(path=self.function_output_serialization_path)
         # Print and exit
         # self.print_pre_exit_info(trainer)
+
+
+@click.command(
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+)
+@click.argument("bucket_name")
+@click.argument("directory")
+def main(bucket_name, directory):
+    JobRunner(bucket_name, directory).run()

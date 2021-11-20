@@ -14,7 +14,7 @@ setup(
         "console_scripts": [
             "submit = wormulon.submit:main",
             "salvo = wormulon.salvo:fire",
-            "tpu_train = wormulon.tpu_runner:__init__",
+            "tpu_train = wormulon.tpu_runner:main",
         ],
     },
 )
