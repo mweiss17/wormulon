@@ -45,12 +45,12 @@ class Bucket(object):
         client = storage.Client()
         bucket = client.get_bucket(self.name)
         if path.startswith("gs://"):
-            remote_file_path = path[5:]
-        if remote_file_path.endswith("/"):
-            remote_file_path = remote_file_path[:-1]
-        if remote_file_path.startswith("/"):
-            remote_file_path = remote_file_path[1:]
-        blob = bucket.get_blob(remote_file_path)
+            path = path[5:]
+        if path.endswith("/"):
+            path = path[:-1]
+        if path.startswith("/"):
+            path = path[1:]
+        blob = bucket.get_blob(path)
         bytes = blob.download_as_bytes()
         buffer = io.BytesIO(bytes)
         return buffer
