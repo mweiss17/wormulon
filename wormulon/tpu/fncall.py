@@ -1,6 +1,6 @@
 import io
 import traceback
-import torch
+import pickle
 import stopit
 from typing import Callable, Union, Any
 from dataclasses import dataclass, field
@@ -44,10 +44,9 @@ class FunctionCall(object):
         return self
 
     def serialize(self):
-        buffer = io.BytesIO()
-        torch.save((self.fn, self.args, self.kwargs), buffer)
-        return buffer.getvalue()
+        buffer = pickle.dumps((self.fn, self.args, self.kwargs))
+        return buffer
 
     @classmethod
     def deserialize(cls, buffer):
-        return cls(*torch.load(buffer))
+        return cls(*pickle.loads(buffer))

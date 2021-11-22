@@ -69,6 +69,7 @@ class TPUManager(object):
         )
 
         # Create a handler
+        breakpoint()
         handler = TPUJobHandler.instantiate(self.bucket, exp_dir,
             function_call=FunctionCall(fn, args, job_kwargs),
         )
