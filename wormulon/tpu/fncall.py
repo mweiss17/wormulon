@@ -21,6 +21,7 @@ class FunctionCall(object):
     kwargs: dict
     outputs: Union[Any, NotAvailable] = NotAvailable()
     timeout: int = 2628000
+
     def call(self):
         if not isinstance(self.outputs, NotAvailable):
             # This is to ensure that the function is called only once.

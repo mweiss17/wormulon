@@ -9,8 +9,11 @@ import click
 
 
 def _mp_fn(index, bucket, fn_call_buffer, path):
+    print(f"Starting worker {index}")
     fn_call = FunctionCall.deserialize(fn_call_buffer)
+
     fn_call.call()
+    print(f"Finished worker {index}")
     # fn_call.serialize_outputs(bucket, path)
 
 
