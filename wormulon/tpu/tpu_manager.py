@@ -62,7 +62,7 @@ class TPUManager(object):
             tpu = TPU(existing_tpu_name, **self.tpu_kwargs)
         else:
             tpu = self.get_available_tpu()
-
+        print(f"running on {tpu.name}")
         # Try to Add WANDB_API_KEY
         job_kwargs['env_stmts'].append(
             f"export WANDB_API_KEY={os.environ.get('WANDB_API_KEY', '')};"
