@@ -11,7 +11,7 @@ import click
 def _mp_fn(index, bucket, fn_call_buffer, path):
     fn_call = FunctionCall.deserialize(fn_call_buffer)
     fn_call.call()
-    fn_call.serialize_outputs(bucket, path)
+    # fn_call.serialize_outputs(bucket, path)
 
 
 class JobRunner(object):

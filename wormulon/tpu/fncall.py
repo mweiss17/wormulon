@@ -50,3 +50,6 @@ class FunctionCall(object):
     @classmethod
     def deserialize(cls, buffer):
         return cls(*pickle.loads(buffer))
+
+    def serialize_outputs(self):
+        return serialize(self.outputs)
