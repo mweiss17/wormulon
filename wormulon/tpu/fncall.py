@@ -20,14 +20,14 @@ class FunctionCall(object):
     args: tuple
     kwargs: dict
     outputs: Union[Any, NotAvailable] = NotAvailable()
-
+    timeout: int = 2628000
     def call(self):
         if not isinstance(self.outputs, NotAvailable):
             # This is to ensure that the function is called only once.
             return self.outputs
-        if self.configuration.get("timeout") is not None:
+        if self.timeout is not None:
             timer = stopit.ThreadingTimeout(
-                self.configuration.get("timeout"), swallow_exc=False
+                self.timeout, swallow_exc=False
             )
         else:
             timer = suppress()
