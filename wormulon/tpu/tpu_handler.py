@@ -1,7 +1,7 @@
 import os
 import uuid
 import time
-from wormulon.utils import NotAvailable, ExceptionInJob, JobFailure, JobTimeout
+from wormulon.utils import NotAvailable, ExceptionInJob, JobFailure, JobTimeout, serialize
 from dataclasses import dataclass
 from wormulon.tpu.fncall import FunctionCall
 from wormulon.tpu.tpu_job import TPUJob
@@ -12,12 +12,11 @@ from typing import Union, Any, Optional
 @dataclass
 class TPUJobHandler(object):
     # Required at instantiation
-    job_id: str
     function_call: FunctionCall
     experiment_directory: str
     bucket: Bucket
     # Can be filled in later
-    tpu_job: TPUJob = NotAvailable()
+    tpu_job: TPUJob = None
     job_output: Union[Any, NotAvailable] = NotAvailable()
     has_timed_out: bool = False
 
@@ -25,9 +24,8 @@ class TPUJobHandler(object):
     def instantiate(
         cls, bucket: Bucket, dir: str, function_call: FunctionCall
     ):
-        job_id = uuid.uuid4().hex
+
         return cls(
-            job_id=job_id,
             bucket=bucket,
             experiment_directory=dir,
             function_call=function_call,
@@ -35,12 +33,12 @@ class TPUJobHandler(object):
 
     @property
     def working_directory(self):
-        path = os.path.join(self.experiment_directory, self.job_id)
+        path = os.path.join(self.experiment_directory, self.tpu_job.job_id)
         return path
 
     @property
     def function_call_serialization_path(self):
-        return os.path.join(self.working_directory, "function_call.pkl")
+        return os.path.join(self.working_directory, "function_call.pt")
 
     @property
     def function_call_configuration_path(self):
@@ -48,7 +46,7 @@ class TPUJobHandler(object):
 
     @property
     def function_output_serialization_path(self):
-        return os.path.join(self.working_directory, "function_output.pkl")
+        return os.path.join(self.working_directory, "function_output.pt")
 
     @property
     def function_call_output_lock_path(self):
@@ -115,6 +113,23 @@ class TPUJobHandler(object):
         return self.output
 
     wait = wait_till_output_is_ready
+
+    def launch(self, tpu):
+        self.tpu_job = TPUJob(**self.function_call.kwargs)
+
+        tpu.bucket.upload(
+            self.function_call_serialization_path, serialize(self.function_call)
+        )
+
+        # Run the job
+        for cmd in self.tpu_job.setup:
+            tpu.ssh(cmd, self.tpu_job.env)
+        tpu.ssh(self.tpu_job.install, self.tpu_job.env)
+
+        tpu.ssh(
+            f"tpu_train {self.bucket.name} {self.function_call_serialization_path}"
+        )
+        return self
 
     def clean_up(self):
         print(f"deleting {self.working_directory}")

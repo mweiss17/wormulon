@@ -1,9 +1,9 @@
 import os
 import argparse
 import torch
-from wormulon.bucket import Bucket
+from wormulon.tpu.bucket import Bucket
 from wormulon.utils import ExceptionInJob, JobFailure
-from wormulon.fncall import FunctionCall
+from wormulon.tpu.fncall import FunctionCall
 import torch_xla.distributed.xla_multiprocessing as xmp
 import click
 
@@ -19,16 +19,16 @@ class JobRunner(object):
         return path
 
     @property
-    def job_status_path(self):
-        return os.path.join(self.directory, "JobState.yml")
+    def job_state_path(self):
+        return os.path.join(self.directory, "job_state.yml")
 
     @property
     def trainstate_path(self):
-        return os.path.join(self.directory, "trainstate.pkl")
+        return os.path.join(self.directory, "trainstate.pt")
 
     @property
     def function_output_serialization_path(self):
-        return os.path.join(self.working_directory, "function_output.pkl")
+        return os.path.join(self.working_directory, "function_output.pt")
 
     def print_pre_exit_info(self, function_call: FunctionCall):
         if isinstance(function_call.outputs, ExceptionInJob):

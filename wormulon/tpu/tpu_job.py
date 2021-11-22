@@ -1,15 +1,16 @@
 import os
 import time
 import subprocess
+from wormulon.core import Job
 from wormulon.utils import execute, serialize
 from wormulon.utils import JobState
 
 
-class TPUJob(object):
+class TPUJob(Job):
     def __init__(
-        self, path, setup_cmds, install_cmd, train_cmd, env_stmts, cleanup_cmds, **kwargs
+        self, setup_cmds, install_cmd, train_cmd, env_stmts, cleanup_cmds, **kwargs
     ):
-        self.path = path
+        super().__init__(**kwargs)
         self.setup_cmds = setup_cmds
         self.install_cmd = install_cmd
         self.train_cmd = train_cmd
@@ -54,3 +55,6 @@ class TPUJob(object):
         with open(self.out_path, "r") as f:
             output = f.read()
         return output
+
+    def has_timed_out(self):
+        return self.last_heartbeat_at() > self.timeout

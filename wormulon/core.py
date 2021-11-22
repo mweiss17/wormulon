@@ -1,3 +1,4 @@
+import uuid
 import time
 import subprocess
 
@@ -10,8 +11,9 @@ from wormulon.utils import JobState
 
 
 class Job:
-    def __init__(self, job_id, timeout=60):
-        self.job_id = job_id
+    def __init__(self, timeout=60, **kwargs):
+        self.job_id = uuid.uuid4().hex
+
         self.timeout = timeout
 
     def __repr__(self):

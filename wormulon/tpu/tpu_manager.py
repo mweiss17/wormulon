@@ -1,3 +1,4 @@
+import os
 from wormulon.utils import execute, JobState, serialize
 from wormulon.tpu.bucket import Bucket
 from wormulon.tpu.tpu import TPU
@@ -53,7 +54,7 @@ class TPUManager(object):
         int_ids.extend([int(i.split("-")[-1]) for i in ids])
         return int_ids
 
-    def submit(self, fn, args, dir, **job_kwargs):
+    def submit(self, fn, args, exp_dir, **job_kwargs):
 
         # Get a TPU
         existing_tpu_name = job_kwargs.get("tpu_name")
@@ -62,25 +63,15 @@ class TPUManager(object):
         else:
             tpu = self.get_available_tpu()
 
+        # Try to Add WANDB_API_KEY
+        job_kwargs['env_stmts'].append(
+            f"export WANDB_API_KEY={os.environ.get('WANDB_API_KEY', '')};"
+        )
+
         # Create a handler
-        handler = TPUJobHandler.instantiate(self.bucket, dir,
+        handler = TPUJobHandler.instantiate(self.bucket, exp_dir,
             function_call=FunctionCall(fn, args, job_kwargs),
         )
         # Create a job
-        job = TPUJob(dir, **job_kwargs)
-        handler.tpu_job = job
         self._job_handlers.append(handler)
-        tpu.bucket.upload(
-            handler.function_call_serialization_path, serialize(handler.function_call)
-        )
-
-
-        # Run the job
-        for cmd in job.setup:
-            tpu.ssh(cmd, job.env)
-        tpu.ssh(job.install, job.env)
-
-        tpu.ssh(
-            f"{job.train} {self.bucket.name} {handler.function_call_serialization_path}"
-        )
-        return handler
+        return handler.launch(tpu)

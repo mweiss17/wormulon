@@ -42,7 +42,7 @@ def execute(command, timeout=300, capture_output=True):
             f"command failed with {e}, taking longer than {timeout} seconds to finish."
         )
     except subprocess.CalledProcessError as e:
-        print(f"command failed with exit code {e.returncode}, {e.stderr}")
+        print(f"command failed with exit code {e.returncode}, {e.stderr.decode('utf-8')}")
     return ("", "", 1)
 
 
