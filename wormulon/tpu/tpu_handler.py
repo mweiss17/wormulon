@@ -38,7 +38,7 @@ class TPUJobHandler(object):
 
     @property
     def function_call_serialization_path(self):
-        return os.path.join(self.working_directory, "function_call.pt")
+        return os.path.join(self.working_directory, "function_call.pkl")
 
     @property
     def function_call_configuration_path(self):
@@ -46,7 +46,7 @@ class TPUJobHandler(object):
 
     @property
     def function_output_serialization_path(self):
-        return os.path.join(self.working_directory, "function_output.pt")
+        return os.path.join(self.working_directory, "function_output.pkl")
 
     @property
     def function_call_output_lock_path(self):
@@ -116,9 +116,8 @@ class TPUJobHandler(object):
 
     def launch(self, tpu):
         self.tpu_job = TPUJob(**self.function_call.kwargs)
-
         tpu.bucket.upload(
-            self.function_call_serialization_path, serialize(self.function_call)
+            self.function_call_serialization_path, self.function_call.serialize()
         )
 
         # Run the job

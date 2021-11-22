@@ -2,10 +2,16 @@ import os
 import argparse
 import torch
 from wormulon.tpu.bucket import Bucket
-from wormulon.utils import ExceptionInJob, JobFailure
+from wormulon.utils import ExceptionInJob, JobFailure, deserialize
 from wormulon.tpu.fncall import FunctionCall
 import torch_xla.distributed.xla_multiprocessing as xmp
 import click
+
+
+def _mp_fn(index, bucket, fn_call_buffer, path):
+    fn_call = FunctionCall.deserialize(fn_call_buffer)
+    fn_call.call()
+    fn_call.serialize_outputs(bucket, path)
 
 
 class JobRunner(object):
@@ -15,7 +21,7 @@ class JobRunner(object):
 
     @property
     def fn_call_path(self):
-        path = os.path.join(self.directory, "function_call.pt")
+        path = os.path.join(self.directory, "function_call.pkl")
         return path
 
     @property
@@ -24,11 +30,11 @@ class JobRunner(object):
 
     @property
     def trainstate_path(self):
-        return os.path.join(self.directory, "trainstate.pt")
+        return os.path.join(self.directory, "trainstate.pkl")
 
     @property
     def function_output_serialization_path(self):
-        return os.path.join(self.working_directory, "function_output.pt")
+        return os.path.join(self.directory, "function_output.pkl")
 
     def print_pre_exit_info(self, function_call: FunctionCall):
         if isinstance(function_call.outputs, ExceptionInJob):
@@ -50,12 +56,6 @@ class JobRunner(object):
         return self
 
     def run(self):
-        def _mp_fn(index, bucket, fn_call_buffer, path):
-            fn_call = torch.load(fn_call_buffer)
-
-            fn_call.call()
-            fn_call.serialize_outputs(bucket, path)
-
         fn_call_buffer = self.bucket.download(self.fn_call_path)
 
         xmp.spawn(

@@ -95,14 +95,14 @@ def serialize(object_to_serialize):
 
 def deserialize(buffer):
     try:
-        import torch_xla.core.xla_model as xm
+        import torch_xla
     except Exception:
         import torch
 
-        xm = None
+        torch_xla = None
 
-    if xm:
-        ob = xm.load(buffer)
+    if torch_xla:
+        ob = torch_xla.utils.serialization.load(buffer)
     else:
         ob = torch.load(buffer)
     return ob

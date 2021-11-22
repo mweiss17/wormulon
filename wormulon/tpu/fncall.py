@@ -1,3 +1,4 @@
+import io
 import traceback
 import stopit
 from typing import Callable, Union, Any
@@ -41,5 +42,9 @@ class FunctionCall(object):
                 self.outputs = JobFailure()
         return self
 
-    def serialize(self, bucket, path):
-        bucket.upload(serialize(self.outputs), path)
+    def serialize(self):
+        return torch.dumps((self.fn, self.args, self.kwargs)), io.BytesIO()
+
+    @classmethod
+    def deserialize(cls, buffer):
+        return cls(*torch.load(path))
