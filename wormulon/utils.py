@@ -5,9 +5,9 @@ import yaml
 import subprocess
 from dataclasses import dataclass
 from addict import Dict
+from enum import Enum
 
-
-class JobState:
+class JobState(Enum):
     RUNNING = 0
     SUCCESS = 1
     FAILURE = 2
@@ -16,34 +16,26 @@ class JobState:
     STARTING = 5
     PREEMPTED = 6
 
-    @staticmethod
-    def to_string(status):
-        if status == JobState.RUNNING:
-            return "RUNNING"
-        elif status == JobState.SUCCESS:
-            return "SUCCESS"
-        elif status == JobState.FAILURE:
-            return "FAILURE"
-        elif status == JobState.ABORTED:
-            return "ABORTED"
-        else:
-            return "UNKNOWN"
 
-
-def execute(command, timeout=300, capture_output=True):
+def execute(command, capture_output=False, timeout=300):
+    output = ("", "", 0)
     try:
-        output = subprocess.run(
-            command, capture_output=capture_output, timeout=timeout, check=True
-        )
-        return output.stdout.decode("utf-8"), output.stderr.decode("utf-8"), 0
-
+        if capture_output:
+            output = subprocess.run(
+                command, capture_output=True, timeout=timeout, check=True
+            )
+            output = (output.stdout.decode("utf-8"), output.stderr.decode("utf-8"), output.returncode)
+        else:
+            subprocess.run(
+                command, capture_output=False, timeout=timeout, check=True
+            )
     except subprocess.TimeoutExpired as e:
         print(
             f"command failed with {e}, taking longer than {timeout} seconds to finish."
         )
     except subprocess.CalledProcessError as e:
-        print(f"command failed with exit code {e.returncode}, {e.stderr.decode('utf-8')}")
-    return ("", "", 1)
+        print(f"command failed with exit code {e}")
+    return output
 
 
 class NotAvailable(object):
@@ -108,11 +100,9 @@ def deserialize(buffer):
     return ob
 
 
-def dump_yaml(d: dict, path: str):
-    with open(path, "w") as f:
-        yaml.dump(d, f)
+def dump_yaml(d: dict):
+    return yaml.dump(d)
 
+def load_yaml(buffer: bytes):
+    return Dict(yaml.load(buffer, Loader=yaml.FullLoader))
 
-def load_yaml(path: str):
-    with open(path, "r") as f:
-        return Dict(yaml.load(f, Loader=yaml.FullLoader))

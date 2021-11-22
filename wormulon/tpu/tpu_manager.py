@@ -18,7 +18,6 @@ class TPUManager(object):
 
     def get_available_tpu(self):
         unavailable_names = set()
-
         for job in self.bucket.list_jobs(filter=JobState.RUNNING):
             unavailable_names.add(job.config.get("tpu_name"))
 
@@ -37,7 +36,7 @@ class TPUManager(object):
 
     def get_all_tpus(self):
         command = f"gcloud compute tpus list --format=value(name) --zone {self.zone}"
-        stdout, stderr, retcode = execute(command.split())
+        stdout, stderr, retcode = execute(command.split(), capture_output=True)
         names = stdout.split("\n")
         tpus = []
         for name in names:
@@ -48,7 +47,7 @@ class TPUManager(object):
 
     def get_tpu_ids(self):
         command = f"gcloud alpha compute tpus list --zone={self.zone} --format=value[seperator=','](name)"
-        stdout, stderr, retcode = execute(command.split())
+        stdout, stderr, retcode = execute(command.split(), capture_output=True)
         ids = stdout.split("\n")
         ids.remove("")
         int_ids = [-1]

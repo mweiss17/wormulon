@@ -43,6 +43,7 @@ class TPUJob(Job):
         else:
             return self.last_heartbeat
 
+
     def get_status(self):
         if self.last_heartbeat_at() > self.timeout:
             return JobState.FAILURE

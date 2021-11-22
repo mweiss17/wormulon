@@ -72,7 +72,7 @@ class TPU(Node):
             cmd = env_stmt + cmd
         command.append(cmd)
 
-        stdout, stderr, retcode = execute(command, capture_output=capture_output, timeout=timeout)
+        stdout, stderr, retcode = execute(command, capture_output=False, timeout=timeout)
         return stdout
 
     @property

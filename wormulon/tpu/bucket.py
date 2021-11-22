@@ -1,7 +1,7 @@
 import io
 from collections import defaultdict
 from google.cloud import storage
-from wormulon.utils import JobState
+from wormulon.utils import JobState, load_yaml
 
 
 class Bucket(object):
@@ -17,9 +17,12 @@ class Bucket(object):
 
     def list_jobs(self, filter: JobState, limit: int = None, verbose: bool = True):
         results = defaultdict(list)
-        jobs = self.list(filter="job")
-        for job in jobs:
-            results[job.state].append(job)
+        blobs = self.list(filter="jobstate")
+        for blob in blobs:
+            bytes = blob.download_as_bytes()
+            buffer = io.BytesIO(bytes)
+            jobstate = load_yaml(buffer.getvalue())
+            results[JobState(jobstate.get("state")).name].append(jobstate)
 
         if verbose:
             s = ""
@@ -68,11 +71,9 @@ class Bucket(object):
 
     def delete_all(self, path):
         client = storage.Client()
-        bucket = client.get_bucket(self.name)
-        blobs = client.list_blobs(path)
-        breakpoint()
+        blobs = client.list_blobs(self.name, prefix=path)
         for blob in blobs:
-            bucket.delete_blob(blob)
+            blob.delete()
 
     def touch(self, path):
         self.upload(path, "")

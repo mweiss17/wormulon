@@ -1,7 +1,8 @@
+import io
 import os
 import uuid
 import time
-from wormulon.utils import NotAvailable, ExceptionInJob, JobFailure, JobTimeout, serialize
+from wormulon.utils import NotAvailable, ExceptionInJob, JobFailure, JobTimeout, serialize, JobState, dump_yaml
 from dataclasses import dataclass
 from wormulon.tpu.fncall import FunctionCall
 from wormulon.tpu.tpu_job import TPUJob
@@ -49,6 +50,10 @@ class TPUJobHandler(object):
         return os.path.join(self.working_directory, "function_output.pkl")
 
     @property
+    def job_state_path(self):
+        return os.path.join(self.working_directory, "jobstate.yml")
+
+    @property
     def function_call_output_lock_path(self):
         return os.path.join(self.working_directory, "function_call_output.lock")
 
@@ -62,7 +67,7 @@ class TPUJobHandler(object):
 
     @property
     def function_has_returned_output(self):
-        return os.path.exists(self.function_output_serialization_path)
+        return self.bucket.exists(self.function_output_serialization_path)
 
     @property
     def output(self):
@@ -119,11 +124,13 @@ class TPUJobHandler(object):
         tpu.bucket.upload(
             self.function_call_serialization_path, self.function_call.serialize()
         )
+        tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value}))
 
         # Run the job
-        for cmd in self.tpu_job.setup:
-            tpu.ssh(cmd, self.tpu_job.env)
+        # for cmd in self.tpu_job.setup:
+        #     tpu.ssh(cmd, self.tpu_job.env)
         tpu.ssh(self.tpu_job.install, self.tpu_job.env)
+        tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value}), overwrite=True)
 
         tpu.ssh(
             f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
@@ -132,7 +139,8 @@ class TPUJobHandler(object):
 
     def clean_up(self):
         print(f"deleting {self.working_directory}")
-        # self.bucket.delete_all(self.working_directory)
+        breakpoint()
+        self.bucket.delete_all(self.working_directory)
         return self
 
     def request_exit(self):

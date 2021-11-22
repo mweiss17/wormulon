@@ -29,7 +29,7 @@ class JobRunner(object):
 
     @property
     def job_state_path(self):
-        return os.path.join(self.directory, "job_state.yml")
+        return os.path.join(self.directory, "jobstate.yml")
 
     @property
     def trainstate_path(self):
