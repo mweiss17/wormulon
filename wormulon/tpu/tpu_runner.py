@@ -59,7 +59,7 @@ class JobRunner(object):
         fn_call_buffer = self.bucket.download(self.fn_call_path)
 
         xmp.spawn(
-            _mp_fn, args=(self.bucket, fn_call_buffer, self.function_output_serialization_path), nprocs=8, start_method="fork",
+            _mp_fn, args=(self.bucket, fn_call_buffer.getvalue(), self.function_output_serialization_path), nprocs=8, start_method="fork",
         )
 
 

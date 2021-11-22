@@ -126,7 +126,7 @@ class TPUJobHandler(object):
         tpu.ssh(self.tpu_job.install, self.tpu_job.env)
 
         tpu.ssh(
-            f"{self.tpu_job.train_cmd} {self.bucket.name} {self.function_call_serialization_path}"
+            f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
         )
         return self
 
