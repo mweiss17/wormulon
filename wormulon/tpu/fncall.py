@@ -33,7 +33,7 @@ class FunctionCall(object):
             timer = suppress()
         try:
             with timer:
-                self.outputs = self.fn(*self.args, **self.kwargs)
+                self.outputs = self.fn(*self.args)
         except stopit.TimeoutException:
             self.outputs = JobTimeout()
         except Exception:

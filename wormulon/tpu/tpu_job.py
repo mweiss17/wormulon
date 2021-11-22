@@ -8,11 +8,12 @@ from wormulon.utils import JobState
 
 class TPUJob(Job):
     def __init__(
-        self, setup_cmds, install_cmd, env_stmts, cleanup_cmds, **kwargs
+        self, setup_cmds, install_cmd, train_cmd, env_stmts, cleanup_cmds, **kwargs
     ):
         super().__init__(**kwargs)
         self.setup_cmds = setup_cmds
         self.install_cmd = install_cmd
+        self.train_cmd = train_cmd
         self.env_stmts = env_stmts
         self.cleanup_cmds = cleanup_cmds
 
