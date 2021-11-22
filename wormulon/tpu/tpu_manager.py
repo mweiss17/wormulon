@@ -28,8 +28,9 @@ class TPUManager(object):
                 return tpu
 
         # otherwise create a new TPU
-        ids, error = self.get_tpu_ids()
+        ids = self.get_tpu_ids()
         name = f"{self.project}-{max(ids) + 1}"
+        print(f"No available tpus, creating {name}")
         new_tpu = TPU(name, **self.tpu_kwargs)
         new_tpu.create()
         return new_tpu

@@ -59,7 +59,7 @@ class TPU(Node):
                 else:
                     return stderr
 
-    def ssh(self, cmd, env_stmts=[], synchronous=True, timeout=None):
+    def ssh(self, cmd, env_stmts=[], capture_output=False, timeout=None):
         command = (
             f"gcloud alpha compute tpus tpu-vm ssh "
             f"{self.name} "
@@ -72,7 +72,7 @@ class TPU(Node):
             cmd = env_stmt + cmd
         command.append(cmd)
 
-        stdout, stderr, retcode = execute(command, timeout=timeout)
+        stdout, stderr, retcode = execute(command, capture_output=capture_output, timeout=timeout)
         return stdout
 
     @property
