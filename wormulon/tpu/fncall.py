@@ -1,5 +1,6 @@
 import io
 import traceback
+import torch
 import stopit
 from typing import Callable, Union, Any
 from dataclasses import dataclass, field
@@ -43,8 +44,10 @@ class FunctionCall(object):
         return self
 
     def serialize(self):
-        return torch.dumps((self.fn, self.args, self.kwargs)), io.BytesIO()
+        buffer = io.BytesIO()
+        torch.save((self.fn, self.args, self.kwargs), buffer)
+        return buffer.getvalue()
 
     @classmethod
     def deserialize(cls, buffer):
-        return cls(*torch.load(path))
+        return cls(*torch.load(buffer))
