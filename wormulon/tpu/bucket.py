@@ -66,5 +66,11 @@ class Bucket(object):
         bucket = client.get_bucket(self.name)
         return bucket.blob(path).delete()
 
+    def delete_all(self, path):
+        client = storage.Client()
+        bucket = client.get_bucket(self.name)
+        blobs = storage_client.list_blobs(path)
+        bucket.delete_blobs(blobs)
+
     def touch(self, path):
         self.upload(path, "")

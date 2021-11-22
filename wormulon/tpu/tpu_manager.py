@@ -13,6 +13,7 @@ class TPUManager(object):
         self.project = kwargs.get("project")
         self.tpu_kwargs = kwargs
         self.tpus = self.get_all_tpus()
+        self._job_handlers = []
 
     def get_available_tpu(self):
         unavailable_names = set()
@@ -52,25 +53,27 @@ class TPUManager(object):
         int_ids.extend([int(i.split("-")[-1]) for i in ids])
         return int_ids
 
-    def submit(self, trainer, training_state, **job_kwargs):
+    def submit(self, fn, args, dir, **job_kwargs):
 
         # Get a TPU
-        if job_kwargs.get("tpu_name") is not None:
-            tpu = TPU(job_kwargs.get("tpu_name"), **self.tpu_kwargs)
+        existing_tpu_name = job_kwargs.get("tpu_name")
+        if existing_tpu_name is not None:
+            tpu = TPU(existing_tpu_name, **self.tpu_kwargs)
         else:
             tpu = self.get_available_tpu()
 
         # Create a handler
-        handler = TPUJobHandler.instantiate(
-            function_call=FunctionCall(trainer, training_state, job_kwargs),
+        handler = TPUJobHandler.instantiate(self.bucket, dir,
+            function_call=FunctionCall(fn, args, job_kwargs),
         )
+        # Create a job
+        job = TPUJob(dir, **job_kwargs)
+        handler.tpu_job = job
         self._job_handlers.append(handler)
         tpu.bucket.upload(
-            handler.function_call_serialization_path, handler.function_call
+            handler.function_call_serialization_path, serialize(handler.function_call)
         )
 
-        # Create a job
-        job = TPUJob(**self.get("job/kwargs"))
 
         # Run the job
         for cmd in job.setup:

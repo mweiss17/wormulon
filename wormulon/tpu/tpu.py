@@ -1,11 +1,10 @@
 import torch
 import time
 from wormulon.core import Node
-from wormulon.fncall import FunctionCall
-from wormulon.utils import execute
-from wormulon.tpu_handler import TPUHandler
+from wormulon.tpu.fncall import FunctionCall
+from wormulon.tpu.tpu_handler import TPUJobHandler
 from wormulon.utils import execute, serialize
-
+from wormulon.tpu.bucket import Bucket
 
 class TPU(Node):
     def __init__(
@@ -27,17 +26,8 @@ class TPU(Node):
         self.netrange = netrange
         self.acc_type = acc_type
         self.preemptible = preemptible
-        self.bucket = bucket
-        self._job_handlers = []
+        self.bucket = Bucket(bucket)
 
-    def submit(self, experiment_directory: str, fn: FunctionCall, *args, **kwargs):
-        handler = TPUHandler.instantiate(
-            bucket=self.bucket,
-            experiment_directory=experiment_directory,
-            function_call=FunctionCall(fn, args, kwargs),
-        )
-        self._job_handlers.append(handler)
-        return handler.launch(self)
 
     def __repr__(self):
         return f"TPU({self.name})"

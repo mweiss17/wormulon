@@ -3,8 +3,9 @@ import uuid
 import time
 from wormulon.utils import NotAvailable, ExceptionInJob, JobFailure, JobTimeout
 from dataclasses import dataclass
-from wormulon.fncall import FunctionCall
-from wormulon.bucket import Bucket
+from wormulon.tpu.fncall import FunctionCall
+from wormulon.tpu.tpu_job import TPUJob
+from wormulon.tpu.bucket import Bucket
 from typing import Union, Any, Optional
 
 
@@ -16,18 +17,19 @@ class TPUJobHandler(object):
     experiment_directory: str
     bucket: Bucket
     # Can be filled in later
+    tpu_job: TPUJob = NotAvailable()
     job_output: Union[Any, NotAvailable] = NotAvailable()
     has_timed_out: bool = False
 
     @classmethod
     def instantiate(
-        cls, bucket: Bucket, experiment_directory: str, function_call: FunctionCall
+        cls, bucket: Bucket, dir: str, function_call: FunctionCall
     ):
         job_id = uuid.uuid4().hex
         return cls(
             job_id=job_id,
             bucket=bucket,
-            experiment_directory=experiment_directory,
+            experiment_directory=dir,
             function_call=function_call,
         )
 
@@ -115,10 +117,8 @@ class TPUJobHandler(object):
     wait = wait_till_output_is_ready
 
     def clean_up(self):
-        shutil.rmtree(self.working_directory, ignore_errors=True)
-        if self.tpu_job is not None:
-            # nuke it for good measure
-            self.tpu_job.nuke()
+        print(f"deleting {self.working_directory}")
+        self.bucket.delete_all(self.working_directory)
         return self
 
     def request_exit(self):
