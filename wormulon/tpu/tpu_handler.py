@@ -133,7 +133,7 @@ class TPUJobHandler(object):
 
     def clean_up(self):
         print(f"deleting {self.working_directory}")
-        self.bucket.delete_all(self.working_directory)
+        # self.bucket.delete_all(self.working_directory)
         return self
 
     def request_exit(self):

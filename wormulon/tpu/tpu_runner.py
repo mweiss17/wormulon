@@ -50,35 +50,18 @@ class JobRunner(object):
         return self
 
     def run(self):
-        # def _mp_fn(index, bucket, trainer_buffer, trainstate_buffer):
-        #     trainer = torch.load(trainer_buffer)
-        #     trainstate = torch.load(trainstate_buffer)
-        #     while trainstate.total_steps < trainstate.steps:
-        #         trainstate = trainer(trainstate)
-        #         if index == 0:
-        #             bucket.upload(trainstate)
-        #     trainer.finish()
-        def _mp_fn(index, bucket, fn_call_buffer):
+        def _mp_fn(index, bucket, fn_call_buffer, path):
             fn_call = torch.load(fn_call_buffer)
 
             fn_call.call()
-            fn_call.serialize_outputs(bucket, self.function_output_serialization_path)
+            fn_call.serialize_outputs(bucket, path)
 
         fn_call_buffer = self.bucket.download(self.fn_call_path)
 
         xmp.spawn(
-            _mp_fn, args=(self.bucket, fn_call_buffer), nprocs=8, start_method="fork",
+            _mp_fn, args=(self.bucket, fn_call_buffer, self.function_output_serialization_path), nprocs=8, start_method="fork",
         )
 
-        # function_call = FunctionCall.deserialize(
-        #     path=self.function_call_serialization_path,
-        # )
-        # Call the function
-        # function_call.call()
-        # Accquire the file lock and serialize
-        # function_call.serialize_outputs(path=self.function_output_serialization_path)
-        # Print and exit
-        # self.print_pre_exit_info(trainer)
 
     def heartbeat(self):
         heartbeat_path = os.path.join(self.directory, "heartbeat")
