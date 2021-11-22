@@ -4,6 +4,7 @@ from wormulon.core import Node
 from wormulon.fncall import FunctionCall
 from wormulon.utils import execute
 from wormulon.tpu_handler import TPUHandler
+from wormulon.utils import execute, serialize
 
 
 class TPU(Node):
@@ -37,6 +38,9 @@ class TPU(Node):
         )
         self._job_handlers.append(handler)
         return handler.launch(self)
+
+    def __repr__(self):
+        return f"TPU({self.name})"
 
     def delete(self):
         return execute(

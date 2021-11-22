@@ -9,7 +9,7 @@ from typing import Union, Any, Optional
 
 
 @dataclass
-class TPUHandler(object):
+class TPUJobHandler(object):
     # Required at instantiation
     job_id: str
     function_call: FunctionCall
@@ -52,19 +52,12 @@ class TPUHandler(object):
     def function_call_output_lock_path(self):
         return os.path.join(self.working_directory, "function_call_output.lock")
 
-    def serialize_function_call(self):
-        self.function_call.serialize(
-            path=self.function_call_serialization_path,
-            configuration_path=self.function_call_configuration_path,
-        )
-        return self
-
     @property
     def output_is_ready(self):
         return (
             os.path.exists(self.function_output_serialization_path)
             or self.has_timed_out
-            or (self.raven_job is not None and self.raven_job.has_timed_out)
+            or (self.tpu_job is not None and self.tpu_job.has_timed_out)
         )
 
     @property
@@ -90,7 +83,7 @@ class TPUHandler(object):
             )
         else:
             assert self.has_timed_out or (
-                self.raven_job is not None and self.raven_job.has_timed_out
+                self.tpu_job is not None and self.tpu_job.has_timed_out
             ), "Expected a timeout, but didn't get one."
             self.job_output = JobTimeout()
         if ExceptionInJob.is_instance(self.job_output):
@@ -123,23 +116,14 @@ class TPUHandler(object):
 
     def clean_up(self):
         shutil.rmtree(self.working_directory, ignore_errors=True)
-        if self.raven_job is not None:
+        if self.tpu_job is not None:
             # nuke it for good measure
-            self.raven_job.nuke()
-        return self
-
-    def create_tpu_job(self):
-        pass
-
-    def launch(self, tpu):
-        # Dump the function call somewhere the runner can find.
-        job = self.create_tpu_job()
-        tpu.run(job)
+            self.tpu_job.nuke()
         return self
 
     def request_exit(self):
-        if self.raven_job is not None:
-            self.raven_job.request_exit()
+        if self.tpu_job is not None:
+            self.tpu_job.request_exit()
         return self
 
     def __del__(self):

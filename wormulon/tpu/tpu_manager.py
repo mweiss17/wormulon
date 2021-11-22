@@ -1,6 +1,9 @@
 from wormulon.utils import execute, JobState, serialize
-from wormulon.bucket import Bucket
-from wormulon.tpu import TPU
+from wormulon.tpu.bucket import Bucket
+from wormulon.tpu.tpu import TPU
+from wormulon.tpu.tpu_job import TPUJob
+from wormulon.tpu.tpu_handler import TPUJobHandler
+from wormulon.tpu.fncall import FunctionCall
 
 
 class TPUManager(object):
@@ -49,43 +52,32 @@ class TPUManager(object):
         int_ids.extend([int(i.split("-")[-1]) for i in ids])
         return int_ids
 
-    def launch(self, job, tpu_name=None):
-        if tpu_name is not None:
-            tpu = TPU(tpu_name, **self.tpu_kwargs)
+    def submit(self, trainer, training_state, **job_kwargs):
+
+        # Get a TPU
+        if job_kwargs.get("tpu_name") is not None:
+            tpu = TPU(job_kwargs.get("tpu_name"), **self.tpu_kwargs)
         else:
             tpu = self.get_available_tpu()
 
-        # update the configuration on wandb noting this tpu's name
-        # job.trainer._config["tpu_name"] = tpu.name
-        # job.trainer.update_wandb_config()
+        # Create a handler
+        handler = TPUJobHandler.instantiate(
+            function_call=FunctionCall(trainer, training_state, job_kwargs),
+        )
+        self._job_handlers.append(handler)
+        tpu.bucket.upload(
+            handler.function_call_serialization_path, handler.function_call
+        )
 
-        self.bucket.upload(job.path, serialize(job))
+        # Create a job
+        job = TPUJob(**self.get("job/kwargs"))
 
-        # upload the job to GCP storage
-        for cmd in job.setup_cmds:
-            tpu.ssh(cmd, job.env_stmts)
-        tpu.ssh(job.install_cmd, job.env_stmts)
+        # Run the job
+        for cmd in job.setup:
+            tpu.ssh(cmd, job.env)
+        tpu.ssh(job.install, job.env)
 
-        tpu.ssh(f"{job.train_cmd} {self.bucket.name} {job.path}")
-
-
-class TPUJob(object):
-    def __init__(
-        self,
-        path,
-        trainer,
-        trainstate,
-        setup_cmds,
-        install_cmd,
-        train_cmd,
-        env_stmts,
-        cleanup_cmds,
-    ):
-        self.path = path
-        self.trainer = trainer
-        self.trainstate = trainstate
-        self.setup_cmds = setup_cmds
-        self.install_cmd = install_cmd
-        self.train_cmd = train_cmd
-        self.env_stmts = env_stmts
-        self.cleanup_cmds = cleanup_cmds
+        tpu.ssh(
+            f"{job.train} {self.bucket.name} {handler.function_call_serialization_path}"
+        )
+        return handler

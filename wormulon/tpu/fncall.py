@@ -8,6 +8,7 @@ from wormulon.utils import (
     ExceptionInJob,
     JobFailure,
     JobTimeout,
+    serialize,
 )
 
 
@@ -39,3 +40,6 @@ class FunctionCall(object):
             if isinstance(self.outputs, NotAvailable):
                 self.outputs = JobFailure()
         return self
+
+    def serialize(self, bucket, path):
+        bucket.upload(serialize(self.outputs), path)
