@@ -127,8 +127,8 @@ class TPUJobHandler(object):
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value}))
 
         # Run the job
-        # for cmd in self.tpu_job.setup:
-        #     tpu.ssh(cmd, self.tpu_job.env)
+        for cmd in self.tpu_job.setup:
+            tpu.ssh(cmd, self.tpu_job.env)
         tpu.ssh(self.tpu_job.install, self.tpu_job.env)
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value}), overwrite=True)
 
