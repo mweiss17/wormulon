@@ -132,14 +132,14 @@ class TPUJobHandler(object):
         tpu.ssh(self.tpu_job.install, self.tpu_job.env)
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value}), overwrite=True)
 
+        train_cmd = f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
         tpu.ssh(
-            f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
+            train_cmd, self.tpu_job.env
         )
         return self
 
     def clean_up(self):
         print(f"deleting {self.working_directory}")
-        breakpoint()
         self.bucket.delete_all(self.working_directory)
         return self
 
