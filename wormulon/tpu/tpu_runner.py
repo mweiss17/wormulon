@@ -8,13 +8,12 @@ import torch_xla.distributed.xla_multiprocessing as xmp
 import click
 
 
-def _mp_fn(index, fn_call_buffer):
+def _mp_fn(index, fn_call_buffer, bucket_name):
     print(f"Starting worker {index}")
     fn_call = FunctionCall.deserialize(fn_call_buffer)
-    if type(fn_call.args) == google.cloud.storage.blob.Blob:
-        bytes = fn_call.args.download_as_bytes()
-        buffer = io.BytesIO(bytes)
-        fn_call.args = torch.load(buffer)
+    if type(fn_call.trainstate) == str:
+        trainstate_buf = Bucket(bucket_name).download(fn_call.trainstate)
+        fn_call.trainstate = torch.load(trainstate_buf)
     output = fn_call.call()
     print(f"Finished worker {index} {output}")
 
@@ -70,7 +69,7 @@ class JobRunner(object):
 
 
 @click.command(
-    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+    context_settings=dict(ignore_unknown_options=True, allow_extra_trainstate=True)
 )
 @click.argument("bucket_name")
 @click.argument("directory")

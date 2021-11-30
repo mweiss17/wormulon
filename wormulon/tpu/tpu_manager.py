@@ -54,7 +54,7 @@ class TPUManager(object):
         int_ids.extend([int(i.split("-")[-1]) for i in ids])
         return int_ids
 
-    def submit(self, fn, args, exp_dir, **job_kwargs):
+    def submit(self, fn, trainstate, exp_dir, **job_kwargs):
 
         # Get a TPU
         existing_tpu_name = job_kwargs.get("tpu_name")
@@ -81,16 +81,14 @@ class TPUManager(object):
                 print(f"Resuming from {exp}")
                 found = True
                 break
-
+        breakpoint()
         if found:
-            handler = TPUJobHandler.instantiate(self.bucket, exp_dir)
-            self._job_handlers.append(handler)
-            return handler.launch(tpu, job_kwargs)
+            breakpoint()
+            function_call = FunctionCall(fn, exp.blob.name, job_kwargs)
         else:
-            # Create a handler
-            fn_call = FunctionCall(fn, args, job_kwargs)
-            handler = TPUJobHandler.instantiate(self.bucket, exp_dir, fnc=fn_call)
-            tpu.bucket.upload(handler.function_call_serialization_path, handler.function_call.serialize())
-            self._job_handlers.append(handler)
-            return handler.launch(tpu)
-
+            function_call = FunctionCall(fn, trainstate, job_kwargs)
+        handler = TPUJobHandler.instantiate(self.bucket, exp_dir, function_call=function_call)
+        handler.tpu_job = TPUJob(**job_kwargs)
+        tpu.bucket.upload(handler.function_call_serialization_path, handler.function_call.serialize())
+        self._job_handlers.append(handler)
+        return handler.launch(tpu)

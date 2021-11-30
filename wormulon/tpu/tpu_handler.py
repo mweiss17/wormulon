@@ -17,19 +17,19 @@ class TPUJobHandler(object):
     bucket: Bucket
     # Can be filled in later
     tpu_job: TPUJob = None
-    fnc: FunctionCall = None
+    function_call: FunctionCall = None
     job_output: Union[Any, NotAvailable] = NotAvailable()
     has_timed_out: bool = False
 
     @classmethod
     def instantiate(
-        cls, bucket: Bucket, dir: str, fnc: FunctionCall = None
+        cls, bucket: Bucket, dir: str, function_call: FunctionCall = None
     ):
 
         return cls(
             bucket=bucket,
             experiment_directory=dir,
-            fnc=fnc,
+            function_call=function_call,
         )
 
     @property
@@ -117,8 +117,7 @@ class TPUJobHandler(object):
 
     wait = wait_till_output_is_ready
 
-    def launch(self, tpu, kwargs):
-        self.tpu_job = TPUJob(**kwargs)
+    def launch(self, tpu):
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": tpu.name}))
 
         # Run the job
