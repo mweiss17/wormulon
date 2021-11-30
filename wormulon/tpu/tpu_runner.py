@@ -61,7 +61,7 @@ class JobRunner(object):
 
     def run(self):
         fn_call_buffer = self.bucket.download(self.fn_call_path)
-        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(),), nprocs=8, start_method="fork")
+        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name), nprocs=8, start_method="fork")
 
     def heartbeat(self):
         heartbeat_path = os.path.join(self.directory, "heartbeat")

@@ -81,9 +81,7 @@ class TPUManager(object):
                 print(f"Resuming from {exp}")
                 found = True
                 break
-        breakpoint()
         if found:
-            breakpoint()
             function_call = FunctionCall(fn, exp.blob.name, job_kwargs)
         else:
             function_call = FunctionCall(fn, trainstate, job_kwargs)
