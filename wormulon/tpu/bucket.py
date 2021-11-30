@@ -39,11 +39,10 @@ class Bucket(object):
 
         return results
 
-    def list_experiments(self, filter: JobState = None, verbose: bool = True):
+    def list_experiments(self, verbose: bool = True):
 
-        blobs = self.list(filter)
+        blobs = self.list("trainstate")
         experiments = defaultdict(list)
-
         for blob in blobs:
             step_num = int(blob.name.split("-")[-1].split(".")[0])
             dataset_name = blob.name.split("/")[-1].split("-")[0]
