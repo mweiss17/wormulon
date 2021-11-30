@@ -59,6 +59,7 @@ class Bucket(object):
             exp.sort(key=operator.attrgetter("step"))
             last_checkpoints[exp_id] = exp[-1]
 
+        print("Found the following experiments:\n")
         for exp_id, exp in last_checkpoints.items():
             updated = parser.parse(exp.blob._properties.get('updated', ''))
             print(f"{exp_id}: {exp.blob.name}, updated on {updated}")

@@ -134,7 +134,7 @@ class TPUJobHandler(object):
 
     def clean_up(self):
         print(f"Job is finished: {self.working_directory}")
-        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": tpu.name}))
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": self.tpu.name}))
         return self
 
     def request_exit(self):

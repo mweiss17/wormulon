@@ -60,7 +60,7 @@ class JobRunner(object):
         return self
 
     def run(self):
-        print(f"Running job {fn_call.job_id}.")
+        print(f"Starting job in TPURunner.")
         fn_call_buffer = self.bucket.download(self.fn_call_path)
         fn_call_bytes = fn_call_buffer.getvalue()
         fn_call = FunctionCall.deserialize(fn_call_bytes)
