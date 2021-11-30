@@ -39,7 +39,7 @@ class Bucket(object):
 
         return results
 
-    def list_experiments(self, verbose: bool = True):
+    def list_experiments(self):
 
         blobs = self.list("trainstate")
         experiments = defaultdict(list)

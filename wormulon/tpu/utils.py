@@ -30,7 +30,6 @@ def cleanup_jobs(bucket_name, filter=None):
 
 @click.command(context_settings={})
 @click.argument("bucket_name")
-@click.option("--filter")
 def show_experiments(bucket_name):
     bucket = Bucket(bucket_name)
     bucket.list_experiments(verbose=True)
