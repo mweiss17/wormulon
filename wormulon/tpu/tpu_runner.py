@@ -8,7 +8,6 @@ from wormulon.train_state import TrainState
 import torch_xla.distributed.xla_multiprocessing as xmp
 import click
 
-
 def _mp_fn(index, fn_call_buffer, bucket_name):
     print(f"Starting worker {index}")
     fn_call = FunctionCall.deserialize(fn_call_buffer)
@@ -61,12 +60,15 @@ class JobRunner(object):
         return self
 
     def run(self):
+        print(f"Running job {fn_call.job_id}.")
         fn_call_buffer = self.bucket.download(self.fn_call_path)
-        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name), nprocs=8, start_method="fork")
+        fn_call_bytes = fn_call_buffer.getvalue()
+        fn_call = FunctionCall.deserialize(fn_call_bytes)
 
-    def heartbeat(self):
-        heartbeat_path = os.path.join(self.directory, "heartbeat")
-        self.bucket.touch(heartbeat_path)
+        print(f"pre-building dataset: {fn_call.fn.get('dataset/kwargs/name')}.")
+        fn_call._build_train_tasks()
+
+        xmp.spawn(_mp_fn, args=(fn_call_bytes, self.bucket.name), nprocs=8, start_method="fork")
 
 
 @click.command(

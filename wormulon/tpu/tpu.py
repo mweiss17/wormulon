@@ -33,8 +33,9 @@ class TPU(Node):
         return f"TPU({self.name})"
 
     def delete(self):
+        print(f"deleting tpu {self.name}")
         return execute(
-            f"gcloud alpha compute tpus tpu-vm delete {self.name} --zone {self.zone}".split()
+            f"gcloud alpha compute tpus tpu-vm delete {self.name} --zone {self.zone} --async".split()
         )
 
     def create(self, retry=True):

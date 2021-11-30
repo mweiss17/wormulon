@@ -17,7 +17,9 @@ setup(
             "tpu_train = wormulon.tpu.tpu_runner:main",
             "show_jobs = wormulon.tpu.utils:show_jobs",
             "cleanup_jobs = wormulon.tpu.utils:cleanup_jobs",
-            "show_experiments = wormulon.tpu.utils:show_experiments"
+            "show_experiments = wormulon.tpu.utils:show_experiments",
+            "show_tpus = wormulon.tpu.utils:show_tpus",
+            "delete_all_tpus = wormulon.tpu.utils:delete_all_tpus"
         ],
     },
 )

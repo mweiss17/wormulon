@@ -19,7 +19,7 @@ class TPUManager(object):
     def get_available_tpu(self):
         unavailable_names = set()
         for job in self.bucket.list_jobs(filter=JobState.RUNNING):
-            unavailable_names.add(job.config.get("tpu_name", "polytax-0"))
+            unavailable_names.add(job.get("tpu_name"))
 
         # Find an available tpu
         for tpu in self.tpus:
