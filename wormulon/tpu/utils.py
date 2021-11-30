@@ -32,5 +32,5 @@ def cleanup_jobs(bucket_name, filter=None):
 @click.argument("bucket_name")
 def show_experiments(bucket_name):
     bucket = Bucket(bucket_name)
-    bucket.list_experiments(verbose=True)
+    bucket.list_experiments()
 
