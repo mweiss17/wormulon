@@ -8,12 +8,15 @@ import torch_xla.distributed.xla_multiprocessing as xmp
 import click
 
 
-def _mp_fn(index, bucket, fn_call_buffer, path):
+def _mp_fn(index, fn_call_buffer):
     print(f"Starting worker {index}")
     fn_call = FunctionCall.deserialize(fn_call_buffer)
+    if type(fn_call.args) == google.cloud.storage.blob.Blob:
+        bytes = fn_call.args.download_as_bytes()
+        buffer = io.BytesIO(bytes)
+        fn_call.args = torch.load(buffer)
     output = fn_call.call()
     print(f"Finished worker {index} {output}")
-    # fn_call.serialize_outputs(bucket, path)
 
 
 class JobRunner(object):
@@ -59,11 +62,7 @@ class JobRunner(object):
 
     def run(self):
         fn_call_buffer = self.bucket.download(self.fn_call_path)
-
-        xmp.spawn(
-            _mp_fn, args=(self.bucket, fn_call_buffer.getvalue(), self.function_output_serialization_path), nprocs=8, start_method="fork",
-        )
-
+        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(),), nprocs=8, start_method="fork")
 
     def heartbeat(self):
         heartbeat_path = os.path.join(self.directory, "heartbeat")

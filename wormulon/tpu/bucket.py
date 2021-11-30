@@ -1,8 +1,11 @@
 import io
-from collections import defaultdict
+import operator
+from datetime import datetime
+from dateutil import parser
+from collections import defaultdict, namedtuple
 from google.cloud import storage
 from wormulon.utils import JobState, load_yaml
-
+Experiment = namedtuple("Experiment", ["experiment_name", "dataset_name", "step", "blob"])
 
 class Bucket(object):
     def __init__(self, name):
@@ -15,22 +18,64 @@ class Bucket(object):
             blobs = [blob for blob in blobs if filter in blob.name]
         return blobs
 
-    def list_jobs(self, filter: JobState, limit: int = None, verbose: bool = True):
-        results = defaultdict(list)
+    def list_jobs(self, filter: JobState = None, verbose: bool = True):
+        results = []
         blobs = self.list(filter="jobstate")
         for blob in blobs:
             bytes = blob.download_as_bytes()
             buffer = io.BytesIO(bytes)
             jobstate = load_yaml(buffer.getvalue())
-            results[JobState(jobstate.get("state")).name].append(jobstate)
+            jobstate['state'] = JobState(jobstate.get("state")).name
+            jobstate['blob'] = blob
+
+            if filter is None:
+                results.append(jobstate)
+            elif filter is not None and jobstate.get("state") == filter.name:
+                results.append(jobstate)
 
         if verbose:
-            s = ""
-            for k, v in results.items():
-                s += f"{k}: {len(v)}, "
-            print(s)
+            for result in results:
+                print(result)
 
-        return results[filter][:limit]
+        return results
+
+    def list_experiments(self, filter: JobState = None, verbose: bool = True):
+
+        blobs = self.list(filter)
+        experiments = defaultdict(list)
+
+        for blob in blobs:
+            step_num = int(blob.name.split("-")[-1].split(".")[0])
+            dataset_name = blob.name.split("/")[-1].split("-")[0]
+            exp_name = blob.name.split("/")[1]
+            experiments[f"{exp_name}-{dataset_name}"].append(Experiment(exp_name, dataset_name, step_num, blob))
+
+        last_checkpoints = {}
+        for exp_id in experiments.keys():
+            exp = experiments[exp_id]
+            exp.sort(key=operator.attrgetter("step"))
+            last_checkpoints[exp_id] = exp[-1]
+
+        if verbose:
+            for exp_id, exp in last_checkpoints.items():
+                updated = parser.parse(exp.blob._properties.get('updated', ''))
+                print(f"{exp_id}: {exp.blob.name}, updated on {updated}")
+        return last_checkpoints
+
+    def delete_folder(self, bucket_name, folder):
+        """
+        This function deletes from GCP Storage
+
+        :param bucket_name: The bucket name in which the file is to be placed
+        :param folder: Folder name to be deleted
+        :return: returns nothing
+        """
+        cloud_storage_client = storage.Client()
+        bucket = cloud_storage_client.bucket(bucket_name)
+        try:
+            bucket.delete_blobs(blobs=list(bucket.list_blobs(prefix=folder)))
+        except Exception as e:
+            print(str(e.message))
 
     def upload(self, path, data, overwrite=False):
         """Uploads a blob to GCS bucket"""

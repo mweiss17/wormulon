@@ -15,6 +15,9 @@ setup(
             "submit = wormulon.submit:main",
             "salvo = wormulon.salvo:fire",
             "tpu_train = wormulon.tpu.tpu_runner:main",
+            "show_jobs = wormulon.tpu.utils:show_jobs",
+            "cleanup_jobs = wormulon.tpu.utils:cleanup_jobs",
+            "show_experiments = wormulon.tpu.utils:show_experiments"
         ],
     },
 )

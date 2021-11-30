@@ -13,13 +13,13 @@ class TPUManager(object):
         self.zone = kwargs.get("zone")
         self.project = kwargs.get("project")
         self.tpu_kwargs = kwargs
-        self.tpus = self.get_all_tpus()
+        self.tpus = self.get_all_ready_tpus()
         self._job_handlers = []
 
     def get_available_tpu(self):
         unavailable_names = set()
         for job in self.bucket.list_jobs(filter=JobState.RUNNING):
-            unavailable_names.add(job.config.get("tpu_name"))
+            unavailable_names.add(job.config.get("tpu_name", "polytax-0"))
 
         # Find an available tpu
         for tpu in self.tpus:
@@ -34,14 +34,14 @@ class TPUManager(object):
         new_tpu.create()
         return new_tpu
 
-    def get_all_tpus(self):
-        command = f"gcloud compute tpus list --format=value(name) --zone {self.zone}"
+    def get_all_ready_tpus(self):
+        command = f"gcloud compute tpus list --format=value(NAME,STATUS) --zone {self.zone}"
         stdout, stderr, retcode = execute(command.split(), capture_output=True)
-        names = stdout.split("\n")
+        rows = stdout.split("\n")
+        rows.remove("")
+        ready_names = [r.split("\t")[0] for r in rows if r.split("\t")[1] == "READY"]
         tpus = []
-        for name in names:
-            if name == "":
-                continue
+        for name in ready_names:
             tpus.append(TPU(name=name, **self.tpu_kwargs))
         return tpus
 
@@ -60,7 +60,7 @@ class TPUManager(object):
         existing_tpu_name = job_kwargs.get("tpu_name")
         if existing_tpu_name is not None:
             tpu = TPU(existing_tpu_name, **self.tpu_kwargs)
-            if tpu.name not in [t.name for t in self.get_all_tpus()]:
+            if tpu.name not in [t.name for t in self.get_all_ready_tpus()]:
                 tpu.create()
         else:
             tpu = self.get_available_tpu()
@@ -71,10 +71,26 @@ class TPUManager(object):
             f"export WANDB_API_KEY={os.environ.get('WANDB_API_KEY', '')};"
         )
 
-        # Create a handler
-        handler = TPUJobHandler.instantiate(self.bucket, exp_dir,
-            function_call=FunctionCall(fn, args, job_kwargs),
-        )
-        # Create a job
-        self._job_handlers.append(handler)
-        return handler.launch(tpu)
+
+        # Check if this experiment has a checkpoint
+        experiments = self.bucket.list_experiments()
+        found = False
+        exp_id = f'{exp_dir.split("/")[-1]}-{fn.get("dataset/kwargs/name")}'
+        for eid, exp in experiments.items():
+            if exp_id == eid:
+                print(f"Resuming from {exp}")
+                found = True
+                break
+
+        if found:
+            handler = TPUJobHandler.instantiate(self.bucket, exp_dir)
+            self._job_handlers.append(handler)
+            return handler.launch(tpu, job_kwargs)
+        else:
+            # Create a handler
+            fn_call = FunctionCall(fn, args, job_kwargs)
+            handler = TPUJobHandler.instantiate(self.bucket, exp_dir, fnc=fn_call)
+            tpu.bucket.upload(handler.function_call_serialization_path, handler.function_call.serialize())
+            self._job_handlers.append(handler)
+            return handler.launch(tpu)
+

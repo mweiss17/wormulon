@@ -13,23 +13,23 @@ from typing import Union, Any, Optional
 @dataclass
 class TPUJobHandler(object):
     # Required at instantiation
-    function_call: FunctionCall
     experiment_directory: str
     bucket: Bucket
     # Can be filled in later
     tpu_job: TPUJob = None
+    fnc: FunctionCall = None
     job_output: Union[Any, NotAvailable] = NotAvailable()
     has_timed_out: bool = False
 
     @classmethod
     def instantiate(
-        cls, bucket: Bucket, dir: str, function_call: FunctionCall
+        cls, bucket: Bucket, dir: str, fnc: FunctionCall = None
     ):
 
         return cls(
             bucket=bucket,
             experiment_directory=dir,
-            function_call=function_call,
+            fnc=fnc,
         )
 
     @property
@@ -83,9 +83,7 @@ class TPUJobHandler(object):
         # Output is ready but not read yet.
         # It can be a time-out, or a real output.
         if self.function_has_returned_output:
-            self.job_output = self.function_call.deserialize_object(
-                self.function_output_serialization_path
-            )
+            self.job_output = FunctionCall.deserialize(self.function_output_serialization_path)
         else:
             assert self.has_timed_out or (
                 self.tpu_job is not None and self.tpu_job.has_timed_out
@@ -119,18 +117,15 @@ class TPUJobHandler(object):
 
     wait = wait_till_output_is_ready
 
-    def launch(self, tpu):
-        self.tpu_job = TPUJob(**self.function_call.kwargs)
-        tpu.bucket.upload(
-            self.function_call_serialization_path, self.function_call.serialize()
-        )
-        tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value}))
+    def launch(self, tpu, kwargs):
+        self.tpu_job = TPUJob(**kwargs)
+        tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": tpu.name}))
 
         # Run the job
         for cmd in self.tpu_job.setup:
             tpu.ssh(cmd, self.tpu_job.env)
         tpu.ssh(self.tpu_job.install, self.tpu_job.env)
-        tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value}), overwrite=True)
+        tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": tpu.name}), overwrite=True)
 
         train_cmd = f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
         tpu.ssh(
