@@ -2,7 +2,7 @@ import click
 from pathlib import Path
 from wormulon.tpu.tpu import TPU
 from wormulon.tpu.bucket import Bucket
-from wormulon.utils import JobState, execute
+from wormulon.utils import JobState, execute, dump_yaml
 
 
 @click.command(context_settings={})
@@ -24,10 +24,9 @@ def cleanup_jobs(bucket_name, filter=None, wipe=False):
         filter = JobState[filter]
     jobs = bucket.list_jobs(filter)
     for job in jobs:
-        breakpoint()
         job_id = Path(job['blob'].name).parent
         print(f"setting {job_id} to FAILURE.")
-        bucket.upload(job['blob'].name, dump_yaml({"state": JobState.FAILURE.value}))
+        bucket.upload(job['blob'].name, dump_yaml({"state": JobState.FAILURE.value}), overwrite=True)
         if wipe:
             bucket.delete_folder(bucket_name, job_id)
 

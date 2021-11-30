@@ -118,6 +118,7 @@ class TPUJobHandler(object):
     wait = wait_till_output_is_ready
 
     def launch(self, tpu):
+        self.tpu = tpu
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": tpu.name}))
 
         # Run the job

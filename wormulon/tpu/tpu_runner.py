@@ -66,7 +66,7 @@ class JobRunner(object):
         fn_call = FunctionCall.deserialize(fn_call_bytes)
 
         print(f"pre-building dataset: {fn_call.fn.get('dataset/kwargs/name')}.")
-        fn_call._build_train_tasks()
+        fn_call.fn._build_train_tasks()
 
         xmp.spawn(_mp_fn, args=(fn_call_bytes, self.bucket.name), nprocs=8, start_method="fork")
 
