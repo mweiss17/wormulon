@@ -60,15 +60,8 @@ class JobRunner(object):
         return self
 
     def run(self):
-        print(f"Starting job in TPURunner.")
         fn_call_buffer = self.bucket.download(self.fn_call_path)
-        fn_call_bytes = fn_call_buffer.getvalue()
-        fn_call = FunctionCall.deserialize(fn_call_bytes)
-
-        print(f"pre-building dataset: {fn_call.fn.get('dataset/kwargs/name')}.")
-        fn_call.fn._build_train_tasks()
-
-        xmp.spawn(_mp_fn, args=(fn_call_bytes, self.bucket.name), nprocs=8, start_method="fork")
+        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name), nprocs=8, start_method="fork")
 
 
 @click.command(
