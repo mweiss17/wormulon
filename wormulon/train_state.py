@@ -1,8 +1,9 @@
+import io
+import dill
 from typing import Union
 import torch
 import torch.nn as nn
 from dataclasses import dataclass, field
-import io
 
 try:
     import torch_xla.core.xla_model as xm
@@ -39,13 +40,17 @@ class TrainState(object):
         if xm is not None:
             xm.save(states, buffer)
         else:
-            torch.save(states, buffer)
+            torch.save(states, buffer, pickle_module=dill)
 
         return buffer.getvalue()
 
     @classmethod
     def deserialize(cls, buffer):
         states = torch.load(buffer)
+        if xm is not None:
+            xm.load(states, buffer)
+        else:
+            torch.load(states, buffer, pickle_module=dill)
         return cls(
             step=states["step"],
             epoch=states["epoch"],

@@ -25,11 +25,12 @@ def cleanup_jobs(bucket_name, filter=None, wipe=False):
     jobs = bucket.list_jobs(filter)
     for job in jobs:
         job_id = Path(job['blob'].name).parent
-        print(f"setting {job_id} to FAILURE.")
-        bucket.upload(job['blob'].name, dump_yaml({"state": JobState.FAILURE.value}), overwrite=True)
         if wipe:
+            print("wiping the directory.")
             bucket.delete_folder(bucket_name, job_id)
-
+        else:
+            print(f"setting {job_id} to FAILURE.")
+            bucket.upload(job['blob'].name, dump_yaml({"state": JobState.FAILURE.value}), overwrite=True)
 
 
 @click.command(context_settings={})
