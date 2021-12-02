@@ -10,7 +10,6 @@ import click
 
 def _mp_fn(index, fn_call_buffer, bucket_name):
     print(f"Starting worker {index}")
-    from polytax.train import Trainer
     fn_call = FunctionCall.deserialize(fn_call_buffer)
     if type(fn_call.trainstate) == str:
         trainstate_buf = Bucket(bucket_name).download(fn_call.trainstate)
