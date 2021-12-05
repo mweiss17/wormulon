@@ -40,17 +40,13 @@ class TrainState(object):
         if xm is not None:
             xm.save(states, buffer)
         else:
-            torch.save(states, buffer, pickle_module=dill)
+            torch.save(states, buffer)
 
-        return buffer.getvalue()
+        return buffer
 
     @classmethod
     def deserialize(cls, buffer):
         states = torch.load(buffer)
-        if xm is not None:
-            xm.load(states, buffer)
-        else:
-            torch.load(states, buffer, pickle_module=dill)
         return cls(
             step=states["step"],
             epoch=states["epoch"],
@@ -61,7 +57,7 @@ class TrainState(object):
         )
 
     @classmethod
-    def initial_state(cls, step=0, epoch=0):
+    def initial_state(cls, step=0, epoch=0, misc_attributes=None):
         return cls(
             step=step,
             epoch=epoch,
@@ -69,6 +65,7 @@ class TrainState(object):
             losses_state_dict=NotAvailable(),
             optims_state_dict=NotAvailable(),
             schedulers_state_dict=NotAvailable(),
+            misc_attributes=(misc_attributes or {}),
         )
 
     def load_in_model(self, model: nn.Module):
