@@ -84,8 +84,3 @@ class TPU(Node):
 
     def clean_up(self):
         self.ssh("pkill -9 python3")
-
-    @property
-    def last_heartbeat(self):
-        data = torch.load(self.bucket.download(self.prefix + "heartbeat.pt"))
-        return data["last_heartbeat"]

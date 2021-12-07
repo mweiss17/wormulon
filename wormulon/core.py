@@ -13,7 +13,7 @@ from wormulon.utils import JobState
 class Job:
     def __init__(self, timeout=60, **kwargs):
         self.job_id = uuid.uuid4().hex
-
+        self.last_heartbeat = time.time()
         self.timeout = timeout
 
     def __repr__(self):

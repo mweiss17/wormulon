@@ -73,20 +73,19 @@ class TPUManager(object):
 
 
         # Check if this experiment has a checkpoint
-        experiments = self.bucket.list_experiments()
-        found = False
-        exp_id = f'{exp_dir.split("/")[-1]}-{fn.get("dataset/kwargs/name")}'
-        for eid, exp in experiments.items():
-            if exp_id == eid:
-                print(f"Resuming from {exp}")
-                found = True
-                break
-        if found:
-            function_call = FunctionCall(fn, exp.blob.name, job_kwargs)
-        else:
-            function_call = FunctionCall(fn, trainstate, job_kwargs)
-        handler = TPUJobHandler.instantiate(self.bucket, exp_dir, function_call=function_call)
-        handler.tpu_job = TPUJob(**job_kwargs)
+        # experiments = self.bucket.list_experiments()
+        # found = False
+        # exp_id = f'{exp_dir.split("/")[-1]}-{fn.get("dataset/kwargs/name")}'
+        # for eid, exp in experiments.items():
+        #     if exp_id == eid:
+        #         print(f"Resuming from {exp}")
+        #         found = True
+        #         break
+        # if found:
+        #     function_call = FunctionCall(fn, exp.blob.name, job_kwargs)
+        # else:
+        # function_call = FunctionCall(fn, trainstate, job_kwargs)
+        handler = TPUJobHandler.instantiate(self.bucket, exp_dir, fn, trainstate, job_kwargs)
         tpu.bucket.upload(handler.function_call_serialization_path, handler.function_call.serialize())
         self._job_handlers.append(handler)
         return handler.launch(tpu)

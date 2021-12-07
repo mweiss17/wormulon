@@ -37,12 +37,6 @@ class TPUJob(Job):
     def cleanup(self):
         return self.cleanup_cmds
 
-    def last_heartbeat_at(self, relative_to_now=False):
-        if relative_to_now:
-            return time.time() - self.last_heartbeat
-        else:
-            return self.last_heartbeat
-
 
     def get_status(self):
         if self.last_heartbeat_at() > self.timeout:
@@ -58,4 +52,10 @@ class TPUJob(Job):
         return output
 
     def has_timed_out(self):
-        return self.last_heartbeat_at() > self.timeout
+        return self.last_heartbeat_at > self.timeout
+
+
+    @property
+    def last_heartbeat_at(self):
+        data = torch.load(self.bucket.download(self.prefix + "heartbeat.pt"))
+        return data["last_heartbeat"]

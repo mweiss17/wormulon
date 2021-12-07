@@ -16,20 +16,21 @@ class TPUJobHandler(object):
     experiment_directory: str
     bucket: Bucket
     # Can be filled in later
-    tpu_job: TPUJob = None
-    function_call: FunctionCall = None
+    tpu_job: TPUJob
     job_output: Union[Any, NotAvailable] = NotAvailable()
     has_timed_out: bool = False
 
     @classmethod
     def instantiate(
-        cls, bucket: Bucket, dir: str, function_call: FunctionCall = None
+        cls, bucket: Bucket, exp_dir, fn, trainstate, job_kwargs
     ):
-
+        tpu_job = TPUJob(**job_kwargs)
+        function_call = FunctionCall(fn, trainstate, job_kwargs)
         return cls(
             bucket=bucket,
-            experiment_directory=dir,
+            experiment_directory=exp_dir,
             function_call=function_call,
+            tpu_job=tpu_job,
         )
 
     @property
@@ -99,6 +100,12 @@ class TPUJobHandler(object):
             self.job_output
         )
 
+    def recover(self):
+        breakpoint()
+        bucket = Bucket(self.get("tpu/kwargs/bucket"))
+        train_state = bucket.get_latest_trainstate(self.experiment_directory)
+
+
     def wait_till_output_is_ready(
         self, check_every: int = 5, timeout: Optional[int] = None
     ):
@@ -106,6 +113,8 @@ class TPUJobHandler(object):
         while True:
             if self.output_is_ready:
                 break
+            if not self.tpu_job.is_running:
+                self.recover()
             else:
                 time.sleep(check_every)
                 if timeout is not None and (time.time() - start_time) > timeout:
