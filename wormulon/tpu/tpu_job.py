@@ -54,8 +54,3 @@ class TPUJob(Job):
     def has_timed_out(self):
         return self.last_heartbeat_at > self.timeout
 
-
-    @property
-    def last_heartbeat_at(self):
-        data = torch.load(self.bucket.download(self.prefix + "heartbeat.pt"))
-        return data["last_heartbeat"]

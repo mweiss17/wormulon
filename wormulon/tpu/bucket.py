@@ -143,4 +143,4 @@ class Bucket(object):
             blob.delete()
 
     def touch(self, path):
-        self.upload(path, "")
+        self.upload(path, "", overwrite=True)

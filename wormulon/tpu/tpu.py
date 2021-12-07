@@ -1,5 +1,6 @@
 import torch
 import time
+import asyncio
 from wormulon.core import Node
 from wormulon.tpu.fncall import FunctionCall
 from wormulon.tpu.tpu_handler import TPUJobHandler
@@ -60,7 +61,7 @@ class TPU(Node):
                 else:
                     return stderr
 
-    def ssh(self, cmd, env_stmts=[], capture_output=False, timeout=None):
+    def ssh(self, cmd, env_stmts=[], run_async=False):
         command = (
             f"gcloud alpha compute tpus tpu-vm ssh "
             f"{self.name} "
@@ -72,8 +73,7 @@ class TPU(Node):
         for env_stmt in env_stmts:
             cmd = env_stmt + cmd
         command.append(cmd)
-
-        stdout, stderr, retcode = execute(command, capture_output=False, timeout=timeout)
+        stdout, stderr, retcode = execute(command, run_async=run_async)
         return stdout
 
     @property

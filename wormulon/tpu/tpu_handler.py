@@ -15,8 +15,9 @@ class TPUJobHandler(object):
     # Required at instantiation
     experiment_directory: str
     bucket: Bucket
-    # Can be filled in later
     tpu_job: TPUJob
+    function_call: FunctionCall
+    # Can be filled in later
     job_output: Union[Any, NotAvailable] = NotAvailable()
     has_timed_out: bool = False
 
@@ -24,6 +25,8 @@ class TPUJobHandler(object):
     def instantiate(
         cls, bucket: Bucket, exp_dir, fn, trainstate, job_kwargs
     ):
+        if job_kwargs.get("recover_from_latest"):
+            trainstate = bucket.get_latest_trainstate(exp_dir)
         tpu_job = TPUJob(**job_kwargs)
         function_call = FunctionCall(fn, trainstate, job_kwargs)
         return cls(
@@ -100,20 +103,21 @@ class TPUJobHandler(object):
             self.job_output
         )
 
-    def recover(self):
+    def check_heartbeat(self):
+        data = self.bucket.download(self.experiment_directory + "/heartbeat")
         breakpoint()
-        bucket = Bucket(self.get("tpu/kwargs/bucket"))
-        train_state = bucket.get_latest_trainstate(self.experiment_directory)
-
+        data.updated
+        return self
 
     def wait_till_output_is_ready(
         self, check_every: int = 5, timeout: Optional[int] = None
     ):
         start_time = time.time()
         while True:
+            print("waiting...")
             if self.output_is_ready:
                 break
-            if not self.tpu_job.is_running:
+            elif self.check_heartbeat:
                 self.recover()
             else:
                 time.sleep(check_every)
@@ -137,9 +141,7 @@ class TPUJobHandler(object):
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": tpu.name}), overwrite=True)
 
         train_cmd = f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
-        tpu.ssh(
-            train_cmd, self.tpu_job.env
-        )
+        self.task = tpu.ssh(train_cmd, self.tpu_job.env, run_async=True)
         return self
 
     def clean_up(self):

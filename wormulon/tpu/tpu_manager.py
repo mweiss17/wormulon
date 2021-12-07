@@ -36,7 +36,7 @@ class TPUManager(object):
 
     def get_all_ready_tpus(self):
         command = f"gcloud compute tpus list --format=value(NAME,STATUS) --zone {self.zone}"
-        stdout, stderr, retcode = execute(command.split(), capture_output=True)
+        stdout, stderr, retcode = execute(command.split())
         rows = stdout.split("\n")
         rows.remove("")
         ready_names = [r.split("\t")[0] for r in rows if r.split("\t")[1] == "READY"]
@@ -47,7 +47,8 @@ class TPUManager(object):
 
     def get_tpu_ids(self):
         command = f"gcloud alpha compute tpus list --zone={self.zone} --format=value[seperator=','](name)"
-        stdout, stderr, retcode = execute(command.split(), capture_output=True)
+        stdout, stderr, retcode = execute(command.split())
+        breakpoint()
         ids = stdout.split("\n")
         ids.remove("")
         int_ids = [-1]
@@ -71,20 +72,6 @@ class TPUManager(object):
             f"export WANDB_API_KEY={os.environ.get('WANDB_API_KEY', '')};"
         )
 
-
-        # Check if this experiment has a checkpoint
-        # experiments = self.bucket.list_experiments()
-        # found = False
-        # exp_id = f'{exp_dir.split("/")[-1]}-{fn.get("dataset/kwargs/name")}'
-        # for eid, exp in experiments.items():
-        #     if exp_id == eid:
-        #         print(f"Resuming from {exp}")
-        #         found = True
-        #         break
-        # if found:
-        #     function_call = FunctionCall(fn, exp.blob.name, job_kwargs)
-        # else:
-        # function_call = FunctionCall(fn, trainstate, job_kwargs)
         handler = TPUJobHandler.instantiate(self.bucket, exp_dir, fn, trainstate, job_kwargs)
         tpu.bucket.upload(handler.function_call_serialization_path, handler.function_call.serialize())
         self._job_handlers.append(handler)
