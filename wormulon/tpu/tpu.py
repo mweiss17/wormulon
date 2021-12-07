@@ -52,7 +52,7 @@ class TPU(Node):
             if self.preemptible:
                 command += " --preemptible"
 
-            stdout, stderr, retcode = execute(command.split())
+            stdout, stderr, retcode = execute(command.split(), capture_output=True)
             if retcode == 0:
                 return stdout
             else:
@@ -61,7 +61,7 @@ class TPU(Node):
                 else:
                     return stderr
 
-    def ssh(self, cmd, env_stmts=[], run_async=False):
+    def ssh(self, cmd, env_stmts=[], run_async=False, capture_output=False):
         command = (
             f"gcloud alpha compute tpus tpu-vm ssh "
             f"{self.name} "
@@ -73,13 +73,13 @@ class TPU(Node):
         for env_stmt in env_stmts:
             cmd = env_stmt + cmd
         command.append(cmd)
-        stdout, stderr, retcode = execute(command, run_async=run_async)
+        stdout, stderr, retcode = execute(command, run_async=run_async, capture_output=capture_output)
         return stdout
 
     @property
     def internal_ip(self):
         command = f"gcloud compute tpus describe {self.name} --zone {self.zone} --format=value(networkInterfaces[0].networkIP)"
-        stdout, stderr, retcode = execute(command.split())
+        stdout, stderr, retcode = execute(command.split(), capture_output=True)
         return stdout
 
     def clean_up(self):

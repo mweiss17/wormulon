@@ -45,7 +45,7 @@ def show_tpus():
     zones = ["us-central1-f", "europe-west4-a"]
     for zone in zones:
         command = f"gcloud compute tpus list --format=value(NAME,STATUS) --zone {zone}"
-        stdout, stderr, retcode = execute(command.split())
+        stdout, stderr, retcode = execute(command.split(), capture_output=True)
         rows = stdout.split("\n")
         rows.remove("")
         for row in rows:
@@ -67,7 +67,7 @@ def delete_all_tpus():
 
     for zone in zones:
         command = f"gcloud compute tpus list --format=value(NAME,STATUS) --zone {zone}"
-        stdout, stderr, retcode = execute(command.split())
+        stdout, stderr, retcode = execute(command.split(), capture_output=True)
         rows = stdout.split("\n")
         rows.remove("")
         default_tpu_kwargs["zone"] = zone

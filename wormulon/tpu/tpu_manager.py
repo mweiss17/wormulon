@@ -36,7 +36,7 @@ class TPUManager(object):
 
     def get_all_ready_tpus(self):
         command = f"gcloud compute tpus list --format=value(NAME,STATUS) --zone {self.zone}"
-        stdout, stderr, retcode = execute(command.split())
+        stdout, stderr, retcode = execute(command.split(), capture_output=True)
         rows = stdout.split("\n")
         rows.remove("")
         ready_names = [r.split("\t")[0] for r in rows if r.split("\t")[1] == "READY"]
@@ -47,8 +47,7 @@ class TPUManager(object):
 
     def get_tpu_ids(self):
         command = f"gcloud alpha compute tpus list --zone={self.zone} --format=value[seperator=','](name)"
-        stdout, stderr, retcode = execute(command.split())
-        breakpoint()
+        stdout, stderr, retcode = execute(command.split(), capture_output=True)
         ids = stdout.split("\n")
         ids.remove("")
         int_ids = [-1]

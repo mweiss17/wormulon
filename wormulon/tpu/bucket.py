@@ -111,7 +111,13 @@ class Bucket(object):
         blob.upload_from_string(data)
 
     def download(self, path):
-        """Downloads a file from GCS to local directory"""
+        blob = self.get_blob(path)
+        bytes = blob.download_as_bytes()
+        buffer = io.BytesIO(bytes)
+        return buffer
+
+    def get_blob(self, path):
+        """gets a blob from GCS"""
         client = storage.Client()
         bucket = client.get_bucket(self.name)
         if path.startswith("gs://"):
@@ -121,9 +127,7 @@ class Bucket(object):
         if path.startswith("/"):
             path = path[1:]
         blob = bucket.get_blob(path)
-        bytes = blob.download_as_bytes()
-        buffer = io.BytesIO(bytes)
-        return buffer
+        return blob
 
     def exists(self, path):
         """Downloads a file from GCS to local directory"""

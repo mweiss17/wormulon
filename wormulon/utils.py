@@ -17,18 +17,19 @@ class JobState(Enum):
     PREEMPTED = 6
 
 
-def execute(command, run_async=False):
+def execute(command, capture_output=False, run_async=False):
     output = ("", "", 0)
-    breakpoint()
     try:
         if run_async:
-            output = subprocess.run(
-                command, capture_output=True, timeout=300, check=True
-            )
-            output = (output.stdout.decode("utf-8"), output.stderr.decode("utf-8"), output.returncode)
-        else:
             proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             # calls the proc for a chat - blocking: proc.communicate()
+        elif capture_output:
+            output = subprocess.run(
+                command, capture_output=capture_output, timeout=300, check=True
+            )
+            output = output.stdout.decode("utf-8"), output.stderr.decode("utf-8"), output.returncode
+        else:
+            subprocess.run(command, check=True)
     except subprocess.TimeoutExpired as e:
         print(
             f"command failed with {e}, taking longer than 300 seconds to finish."
