@@ -55,6 +55,7 @@ class TrainState(object):
             losses_state_dict=states["losses_state_dict"],
             optims_state_dict=states["optims_state_dict"],
             schedulers_state_dict=states["schedulers_state_dict"],
+            misc_attributes=states["misc_attributes"],
         )
 
     @classmethod
