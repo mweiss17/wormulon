@@ -5,6 +5,8 @@ from dateutil import parser
 from collections import defaultdict, namedtuple
 from google.cloud import storage
 from wormulon.utils import JobState, load_yaml
+from wormulon.tpu.fncall import FunctionCall
+from wormulon.train_state import TrainState
 Experiment = namedtuple("Experiment", ["experiment_name", "dataset_name", "step", "blob"])
 
 class Bucket(object):
@@ -64,6 +66,23 @@ class Bucket(object):
             updated = parser.parse(exp.blob._properties.get('updated', ''))
             print(f"{exp_id}: {exp.blob.name}, updated on {updated}")
         return last_checkpoints
+
+    def get_latest_trainstate(self, experiment_directory):
+        blobs = self.list(filter=f"{experiment_directory}/trainstate")
+        blobs.sort(key=operator.attrgetter("updated"))
+        bytes = blobs[-1].download_as_bytes()
+        buffer = io.BytesIO(bytes)
+        trainstate = TrainState.deserialize(buffer)
+        return trainstate
+
+    def get_latest_fncall(self, experiment_directory):
+        blobs = self.list(filter=f"{experiment_directory}")
+        fncalls = list(filter(lambda x: x.name.endswith("function_call.pkl"), blobs))
+        fncalls.sort(key=operator.attrgetter("updated"))
+        bytes = fncalls[-1].download_as_bytes()
+        buffer = io.BytesIO(bytes)
+        fncall = FunctionCall.deserialize(buffer)
+        return fncall
 
     def delete_folder(self, bucket_name, folder):
         """

@@ -35,6 +35,7 @@ class TrainState(object):
             "losses_state_dict": self.losses_state_dict,
             "optims_state_dict": self.optims_state_dict,
             "schedulers_state_dict": self.schedulers_state_dict,
+            "misc_attributes": self.misc_attributes,
         }
         buffer = io.BytesIO()
         if xm is not None:
