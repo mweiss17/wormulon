@@ -127,7 +127,7 @@ class TPUJobHandler(object):
         tpu.ssh(self.tpu_job.install, self.tpu_job.env)
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": tpu.name}), overwrite=True)
 
-        train_cmd = f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory} &"
+        train_cmd = f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
         tpu.ssh(
             train_cmd, self.tpu_job.env
         )
