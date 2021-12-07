@@ -42,7 +42,7 @@ class TrainState(object):
         else:
             torch.save(states, buffer)
 
-        return buffer
+        return buffer.getvalue()
 
     @classmethod
     def deserialize(cls, buffer):
