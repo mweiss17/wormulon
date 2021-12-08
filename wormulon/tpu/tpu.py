@@ -68,7 +68,6 @@ class TPU(Node):
             f"--zone {self.zone} "
             f"--command "
         )
-        print(f"running command: {cmd}")
         command = command.split()
         for env_stmt in env_stmts:
             cmd = env_stmt + cmd

@@ -12,6 +12,7 @@ Experiment = namedtuple("Experiment", ["experiment_name", "dataset_name", "step"
 class Bucket(object):
     def __init__(self, name):
         self.name = name
+        self.last_touch = None
 
     def list(self, filter: str):
         storage_client = storage.Client()
@@ -147,4 +148,7 @@ class Bucket(object):
             blob.delete()
 
     def touch(self, path):
+        if self.last_touch and time.time() - last_touch < 5:
+            self.last_touch = time.time()
+            return
         self.upload(path, "", overwrite=True)

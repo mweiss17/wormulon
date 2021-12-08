@@ -2,6 +2,7 @@ import io
 import os
 import uuid
 import time
+import asyncio
 from datetime import datetime
 from wormulon.utils import NotAvailable, ExceptionInJob, JobFailure, JobTimeout, serialize, JobState, dump_yaml
 from dataclasses import dataclass
@@ -19,6 +20,8 @@ class TPUJobHandler(object):
     tpu_job: TPUJob
     function_call: FunctionCall
     # Can be filled in later
+    outbuffer = io.StringIO()
+    errbuffer = io.StringIO()
     job_output: Union[Any, NotAvailable] = NotAvailable()
     has_timed_out: bool = False
     job_has_died: bool = False
@@ -91,27 +94,7 @@ class TPUJobHandler(object):
         self.last_heartbeat = data.updated
         return True
 
-    def wait_till_output_is_ready(
-        self, check_every: int = 5, timeout: Optional[int] = None
-    ):
-        start_time = time.time()
-        while True:
-            if self.job_is_alive:
-                time.sleep(check_every)
-                if timeout is not None and (time.time() - start_time) > timeout:
-                    # We have timed out. Setting the flag below makes
-                    # output_is_ready True, and as a consequence output is set to
-                    # JobTimeout.
-                    self.has_timed_out = True
-            else:
-                print("Job was not alive. Returning.")
-                self.job_has_died = True
-                return None
-        return self.output
-
-    wait = wait_till_output_is_ready
-
-    def launch(self, tpu):
+    async def launch(self, tpu, check_every=1):
         self.tpu = tpu
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": tpu.name}))
 
@@ -122,8 +105,19 @@ class TPUJobHandler(object):
         tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": tpu.name}), overwrite=True)
 
         train_cmd = f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
-        self.task = tpu.ssh(train_cmd, self.tpu_job.env, run_async=True)
-        return self
+        proc = tpu.ssh(train_cmd, self.tpu_job.env, run_async=True)
+        while True:
+            out = proc.stdout.read().decode('utf-8')
+            err = proc.stderr.read().decode('utf-8')
+            self.outbuffer.write(out)
+            self.errbuffer.write(err)
+            if self.job_is_alive:
+                await asyncio.sleep(check_every)
+            else:
+                print("Job was not alive. Returning.")
+                self.job_has_died = True
+                return None
+        return self.output
 
     def clean_up(self):
         print(f"Cleaning up job: {self.working_directory}")

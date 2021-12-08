@@ -1,4 +1,5 @@
 import os
+import asyncio
 from wormulon.utils import execute, JobState, serialize
 from wormulon.tpu.bucket import Bucket
 from wormulon.tpu.tpu import TPU
@@ -54,6 +55,7 @@ class TPUManager(object):
         int_ids.extend([int(i.split("-")[-1]) for i in ids])
         return int_ids
 
+
     def submit(self, fn, trainstate, exp_dir, **job_kwargs):
 
         # Get a TPU
@@ -74,4 +76,4 @@ class TPUManager(object):
         handler = TPUJobHandler.instantiate(self.bucket, exp_dir, fn, trainstate, job_kwargs)
         tpu.bucket.upload(handler.function_call_serialization_path, handler.function_call.serialize())
         self._job_handlers.append(handler)
-        return handler.launch(tpu)
+        return asyncio.ensure_future(handler.launch(tpu)), handler

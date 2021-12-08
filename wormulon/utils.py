@@ -21,8 +21,11 @@ def execute(command, capture_output=False, run_async=False):
     output = ("", "", 0)
     try:
         if run_async:
+            import os
             proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            # calls the proc for a chat - blocking: proc.communicate()
+            os.set_blocking(proc.stdout.fileno(), False)
+            os.set_blocking(proc.stderr.fileno(), False)
+            return proc, None, None
         elif capture_output:
             output = subprocess.run(
                 command, capture_output=capture_output, timeout=300, check=True
