@@ -1,5 +1,6 @@
 import io
 import operator
+import time
 from datetime import datetime
 from dateutil import parser
 from collections import defaultdict, namedtuple
@@ -12,7 +13,7 @@ Experiment = namedtuple("Experiment", ["experiment_name", "dataset_name", "step"
 class Bucket(object):
     def __init__(self, name):
         self.name = name
-        self.last_touch = None
+        self.last_touch = time.time()
 
     def list(self, filter: str):
         storage_client = storage.Client()
@@ -148,7 +149,6 @@ class Bucket(object):
             blob.delete()
 
     def touch(self, path):
-        if self.last_touch and time.time() - last_touch < 5:
+        if time.time() - self.last_touch > 5:
             self.last_touch = time.time()
-            return
-        self.upload(path, "", overwrite=True)
+            self.upload(path, "", overwrite=True)
