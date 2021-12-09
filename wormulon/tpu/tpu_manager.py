@@ -4,7 +4,6 @@ from wormulon.utils import execute, JobState, serialize, dump_yaml
 from wormulon.tpu.bucket import Bucket
 from wormulon.tpu.tpu import TPU
 from wormulon.tpu.tpu_job import TPUJob
-from wormulon.tpu.tpu_handler import TPUJobHandler
 from wormulon.tpu.fncall import FunctionCall
 
 

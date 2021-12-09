@@ -2,7 +2,6 @@ import torch
 import time
 import asyncio
 from wormulon.tpu.fncall import FunctionCall
-from wormulon.tpu.tpu_handler import TPUJobHandler
 from wormulon.utils import execute, serialize
 from wormulon.tpu.bucket import Bucket
 
