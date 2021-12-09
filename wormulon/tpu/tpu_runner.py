@@ -14,11 +14,9 @@ def _mp_fn(index, fn_call_buffer, bucket_name):
     if type(fn_call.trainstate) == str:
         trainstate_buf = Bucket(bucket_name).download(fn_call.trainstate)
         fn_call.trainstate = TrainState.deserialize(trainstate_buf)
-    try:
-        fn_call.call()
-    except Exception as e:
-        print(f"Worker {index} failed with exception {e}")
-    print(f"Finished worker {index}")
+    output = fn_call.call()
+
+    print(f"Finished worker {index} with output: {output}")
 
 
 class JobRunner(object):

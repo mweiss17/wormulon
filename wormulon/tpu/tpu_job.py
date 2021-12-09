@@ -98,8 +98,8 @@ class TPUJob(Job):
         self.tpu.bucket.upload(self.function_call_serialization_path, self.function_call.serialize())
 
         # Run the job
-        # for cmd in self.setup:
-        #     self.tpu.ssh(cmd, self.env)
+        for cmd in self.setup:
+            self.tpu.ssh(cmd, self.env)
         # self.tpu.ssh(self.install, self.env)
         # self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
 

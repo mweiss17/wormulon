@@ -16,7 +16,7 @@ from wormulon.utils import (
 
 @dataclass
 class FunctionCall(object):
-    fn: Callable
+    trainer: Callable
     trainstate: Any
     kwargs: dict
     outputs: Union[Any, NotAvailable] = NotAvailable()
@@ -34,7 +34,7 @@ class FunctionCall(object):
             timer = suppress()
         try:
             with timer:
-                self.outputs = self.fn(self.trainstate)
+                self.outputs = self.trainer(self.trainstate)
         except stopit.TimeoutException:
             self.outputs = JobTimeout()
         except Exception:
@@ -45,7 +45,7 @@ class FunctionCall(object):
         return self
 
     def serialize(self):
-        buffer = pickle.dumps((self.fn, self.trainstate, self.kwargs))
+        buffer = pickle.dumps((self.trainer, self.trainstate, self.kwargs))
         return buffer
 
     @classmethod
