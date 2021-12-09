@@ -14,7 +14,7 @@ def _mp_fn(index, fn_call_buffer, bucket_name):
     if type(fn_call.trainstate) == str:
         trainstate_buf = Bucket(bucket_name).download(fn_call.trainstate)
         fn_call.trainstate = TrainState.deserialize(trainstate_buf)
-    output = fn_call.call()
+    fn_call.call()
     print(f"Finished worker {index}")
 
 
@@ -35,29 +35,6 @@ class JobRunner(object):
     @property
     def trainstate_path(self):
         return os.path.join(self.directory, "trainstate.pkl")
-
-    @property
-    def function_output_serialization_path(self):
-        return os.path.join(self.directory, "function_output.pkl")
-
-    def print_pre_exit_info(self, function_call: FunctionCall):
-        if isinstance(function_call.outputs, ExceptionInJob):
-            print(
-                f"FunctionCall failed due to the following exception:"
-                f"\n{function_call.outputs.exception}"
-            )
-        elif isinstance(function_call.outputs, JobFailure):
-            print(
-                "FunctionCall failed due to not being able to assign "
-                "output from the function. "
-            )
-        else:
-            print(
-                f"FunctionCall returned an output of type "
-                f"{type(function_call.outputs)} at "
-                f"{self.function_output_serialization_path}."
-            )
-        return self
 
     def run(self):
         fn_call_buffer = self.bucket.download(self.fn_call_path)

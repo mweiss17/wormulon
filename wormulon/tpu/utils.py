@@ -11,7 +11,9 @@ from wormulon.utils import JobState, execute, dump_yaml
 def show_jobs(bucket_name, filter=None):
     bucket = Bucket(bucket_name)
     if filter:
-        filter = JobState[filter]
+        filter = [JobState[filter]]
+    else:
+        filter = []
     bucket.list_jobs(filter)
 
 @click.command(context_settings={})
@@ -21,7 +23,9 @@ def show_jobs(bucket_name, filter=None):
 def cleanup_jobs(bucket_name, filter=None, wipe=False):
     bucket = Bucket(bucket_name)
     if filter:
-        filter = JobState[filter]
+        filter = [JobState[filter]]
+    else:
+        filter = []
     jobs = bucket.list_jobs(filter)
     for job in jobs:
         job_id = Path(job['blob'].name).parent

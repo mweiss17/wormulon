@@ -1,13 +1,12 @@
 import torch
 import time
 import asyncio
-from wormulon.core import Node
 from wormulon.tpu.fncall import FunctionCall
 from wormulon.tpu.tpu_handler import TPUJobHandler
 from wormulon.utils import execute, serialize
 from wormulon.tpu.bucket import Bucket
 
-class TPU(Node):
+class TPU:
     def __init__(
         self,
         name,
@@ -76,10 +75,10 @@ class TPU(Node):
         return stdout
 
     @property
-    def internal_ip(self):
-        command = f"gcloud compute tpus describe {self.name} --zone {self.zone} --format=value(networkInterfaces[0].networkIP)"
+    def ip_address(self):
+        command = f"gcloud compute tpus describe {self.name} --zone {self.zone} --format=value(networkEndpoints[0].ipAddress)"
         stdout, stderr, retcode = execute(command.split(), capture_output=True)
-        return stdout
+        return stdout.strip()
 
     def clean_up(self):
         self.ssh("pkill -9 python3")

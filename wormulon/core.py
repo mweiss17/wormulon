@@ -1,20 +1,17 @@
+import io
 import uuid
 import time
 import subprocess
-
-try:
-    import torch_xla.core.xla_model as xm
-except Exception:
-    xm = None
-
 from wormulon.utils import JobState
 
 
 class Job:
-    def __init__(self, timeout=60, **kwargs):
+    def __init__(self, timeout=60):
         self.job_id = uuid.uuid4().hex
         self.last_heartbeat = time.time()
         self.timeout = timeout
+        self.outbuffer = io.StringIO()
+        self.errbuffer = io.StringIO()
 
     def __repr__(self):
         return "<Job: {}>".format(self.job_id)
@@ -41,6 +38,11 @@ class Job:
             return JobState.SUCCESS
 
 
+    @property
+    def has_timed_out(self):
+        return self.last_heartbeat_at > self.timeout
+
+
 class SlurmJob(Job):
     def __init__(self, job_id, command, dry=True):
         super().__init__(job_id, command, dry)
@@ -51,20 +53,3 @@ class SlurmJob(Job):
         process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
         output = process.communicate()
 
-
-class Node(object):
-    def __init__(self, name, jobs=None):
-        self.name = name
-        self.jobs = jobs or []
-
-    def __repr__(self):
-        return "<Node: {}>".format(self.name)
-
-    def delete(self):
-        pass
-
-    def create(self):
-        pass
-
-    def ssh(self):
-        pass

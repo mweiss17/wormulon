@@ -17,7 +17,7 @@ class TPUJobHandler(object):
     # Required at instantiation
     experiment_directory: str
     bucket: Bucket
-    tpu_job: TPUJob
+    job: TPUJob
     function_call: FunctionCall
     # Can be filled in later
     outbuffer = io.StringIO()
@@ -35,7 +35,6 @@ class TPUJobHandler(object):
             trainstate = bucket.get_latest_trainstate(exp_dir)
         except IndexError:
             print("No trainstate found in bucket.")
-        tpu_job = TPUJob(**job_kwargs)
         function_call = FunctionCall(fn, trainstate, job_kwargs)
         return cls(
             bucket=bucket,
@@ -43,35 +42,6 @@ class TPUJobHandler(object):
             function_call=function_call,
             tpu_job=tpu_job,
         )
-
-    @property
-    def working_directory(self):
-        path = os.path.join(self.experiment_directory, self.tpu_job.job_id)
-        return path
-
-    @property
-    def function_call_serialization_path(self):
-        return os.path.join(self.working_directory, "function_call.pkl")
-
-    @property
-    def function_call_configuration_path(self):
-        return os.path.join(self.working_directory, "function_call_config.yml")
-
-    @property
-    def function_output_serialization_path(self):
-        return os.path.join(self.working_directory, "function_output.pkl")
-
-    @property
-    def job_state_path(self):
-        return os.path.join(self.working_directory, "jobstate.yml")
-
-    @property
-    def function_call_output_lock_path(self):
-        return os.path.join(self.working_directory, "function_call_output.lock")
-
-    @property
-    def function_has_returned_output(self):
-        return self.bucket.exists(self.function_output_serialization_path)
 
     @property
     def job_has_failed(self):
@@ -96,7 +66,6 @@ class TPUJobHandler(object):
 
     async def launch(self, tpu, check_every=1):
         self.tpu = tpu
-        tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": tpu.name}))
 
         # Run the job
         for cmd in self.tpu_job.setup:
@@ -107,10 +76,10 @@ class TPUJobHandler(object):
         train_cmd = f"{self.tpu_job.train_cmd} {self.bucket.name} {self.working_directory}"
         proc = tpu.ssh(train_cmd, self.tpu_job.env, run_async=True)
         while True:
-            out = proc.stdout.read().decode('utf-8')
-            err = proc.stderr.read().decode('utf-8')
-            self.outbuffer.write(out)
-            self.errbuffer.write(err)
+            out = proc.stdout.read()
+            err = proc.stderr.read()
+            self.outbuffer.write(out.decode("utf-8") if out else "")
+            self.errbuffer.write(err.decode("utf-8") if err else "")
             if self.job_is_alive:
                 await asyncio.sleep(check_every)
             else:
@@ -121,14 +90,9 @@ class TPUJobHandler(object):
 
     def clean_up(self):
         print(f"Cleaning up job: {self.working_directory}")
-        print("Setting to FAILURE")
+        for cmd in self.tpu_job.clean_up_cmds:
+            self.tpu.ssh(cmd, self.tpu_job.env)
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": self.tpu.name}))
         return self
 
-    def request_exit(self):
-        if self.tpu_job is not None:
-            self.tpu_job.request_exit()
-        return self
 
-    def __del__(self):
-        self.clean_up()
