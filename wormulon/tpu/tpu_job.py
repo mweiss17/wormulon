@@ -50,12 +50,11 @@ class TPUJob(Job):
 
     @property
     def cleanup(self):
-        return self.trainer.get("job/kwargs/cleanup_cmds")
+        return self.trainer.get("job/kwargs/cleanup_cmd")
 
     @property
     def job_state_path(self):
         return os.path.join(self.working_directory, "jobstate.yml")
-
 
     @property
     def failed(self):
@@ -66,8 +65,10 @@ class TPUJob(Job):
     @property
     def is_alive(self):
         data = self.bucket.get_blob(self.trainer.experiment_directory + "/heartbeat")
+
+        # No heartbeat file means the job hasn't started yet
         if data is None:
-            return False
+            return True
 
         if data.updated > self.last_heartbeat + datetime.timedelta(seconds=30):
             return False
@@ -77,8 +78,7 @@ class TPUJob(Job):
 
     def clean_up(self):
         print(f"Cleaning up job: {self.working_directory}")
-        for cmd in self.cleanup:
-            self.tpu.ssh(cmd, self.env)
+        self.tpu.ssh(self.cleanup, self.env)
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": self.tpu.name}))
         return self
 
@@ -87,18 +87,23 @@ class TPUJob(Job):
             return JobState.FAILURE
         else:
             return JobState.SUCCESS
+    #
+    # def __del__(self):
+    #     self.clean_up()
 
     async def launch(self, check_every=1):
-        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}))
+        self.tpu.ssh(self.cleanup, self.env)
+
+        # self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}))
         self.tpu.bucket.upload(self.function_call_serialization_path, self.function_call.serialize())
 
         # Run the job
-        for cmd in self.setup:
-            self.tpu.ssh(cmd, self.env)
-        self.tpu.ssh(self.install, self.env)
-        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
+        # for cmd in self.setup:
+        #     self.tpu.ssh(cmd, self.env)
+        # self.tpu.ssh(self.install, self.env)
+        # self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
 
-        train_cmd = f"{self.train_cmd} {self.bucket.name} {self.working_directory}"
+        train_cmd = f"{self.train} {self.bucket.name} {self.working_directory}"
         proc = self.tpu.ssh(train_cmd, self.env, run_async=True)
 
         while True:
