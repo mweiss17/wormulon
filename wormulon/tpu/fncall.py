@@ -26,18 +26,12 @@ class FunctionCall(object):
         if not isinstance(self.outputs, NotAvailable):
             # This is to ensure that the function is called only once.
             return self.outputs
-        if self.timeout is not None:
-            timer = stopit.ThreadingTimeout(
-                self.timeout, swallow_exc=False
-            )
-        else:
-            timer = suppress()
+
         try:
-            with timer:
-                self.outputs = self.trainer(self.trainstate)
-        except stopit.TimeoutException:
-            self.outputs = JobTimeout()
-        except Exception:
+            self.outputs = self.trainer(self.trainstate)
+        except Exception as e:
+            traceback.print_exc()
+            print(e)
             self.outputs = ExceptionInJob(traceback.format_exc())
         finally:
             if isinstance(self.outputs, NotAvailable):

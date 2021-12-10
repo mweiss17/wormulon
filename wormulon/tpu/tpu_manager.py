@@ -61,7 +61,8 @@ class TPUManager(object):
                 tpu = TPU(available_tpus.pop(), **self.tpu_kwargs)
             else:
                 name = f"{self.project}-{max(self.tpu_ids) + 1}"
-                tpu = TPU(name, **self.tpu_kwargs).create()
+                tpu = TPU(name, **self.tpu_kwargs)
+                tpu.create()
             tpus.append(tpu)
 
         return tpus

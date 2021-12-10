@@ -94,14 +94,14 @@ class TPUJob(Job):
     async def launch(self, check_every=1):
         self.tpu.ssh(self.cleanup, self.env)
 
-        # self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}))
+        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}))
         self.tpu.bucket.upload(self.function_call_serialization_path, self.function_call.serialize())
 
         # Run the job
         for cmd in self.setup:
             self.tpu.ssh(cmd, self.env)
-        # self.tpu.ssh(self.install, self.env)
-        # self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
+        self.tpu.ssh(self.install, self.env)
+        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
 
         train_cmd = f"{self.train} {self.bucket.name} {self.working_directory}"
         proc = self.tpu.ssh(train_cmd, self.env, run_async=True)
