@@ -2,6 +2,7 @@ import os
 import time
 import asyncio
 import subprocess
+import datetime
 from wormulon.core import Job
 from wormulon.utils import execute, serialize, dump_yaml
 from wormulon.utils import JobState
@@ -79,7 +80,7 @@ class TPUJob(Job):
     def clean_up(self):
         print(f"Cleaning up job: {self.working_directory}")
         self.tpu.ssh(self.cleanup, self.env)
-        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": self.tpu.name}))
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": self.tpu.name}), overwrite=True)
         return self
 
     def get_status(self):

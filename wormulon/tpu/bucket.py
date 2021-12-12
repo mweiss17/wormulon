@@ -39,13 +39,12 @@ class Bucket(object):
                     results.append(jobstate)
 
         if verbose:
-            print("Found the following jobs:\n")
-            for result in results:
-                print(result)
-            print("\n")
             if len(results) == 0:
                 print("No jobs found")
-
+            else:
+                print("Found the following jobs:\n")
+                for result in results:
+                    print(result)
         return results
 
     def list_experiments(self):

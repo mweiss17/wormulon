@@ -45,10 +45,13 @@ class TPUManager(object):
         """ Returns a TPU object if one is available (not running a job), otherwise creates a new one """
         try:
              name = self.available_tpus.pop()
+             print(f"Using existing TPU {name}")
              tpu = TPU(name, **self.tpu_kwargs)
         except Exception:
             name = f"{self.project}-{max(self.tpu_ids) + 1}"
-            tpu = TPU(name, **self.tpu_kwargs).create()
+            print(f"Creating new tpu {name}")
+            tpu = TPU(name, **self.tpu_kwargs)
+            tpu.create()
         return tpu
 
 
@@ -58,9 +61,12 @@ class TPUManager(object):
 
         for _ in range(num_tpus):
             if any(available_tpus):
-                tpu = TPU(available_tpus.pop(), **self.tpu_kwargs)
+                name = available_tpus.pop()
+                print(f"Using existing TPU {name}")
+                tpu = TPU(name, **self.tpu_kwargs)
             else:
                 name = f"{self.project}-{max(self.tpu_ids) + 1}"
+                print(f"Creating new tpu {name}")
                 tpu = TPU(name, **self.tpu_kwargs)
                 tpu.create()
             tpus.append(tpu)
