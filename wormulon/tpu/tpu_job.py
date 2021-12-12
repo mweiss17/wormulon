@@ -2,7 +2,7 @@ import os
 import time
 import asyncio
 import subprocess
-import datetime
+from datetime import datetime
 from wormulon.core import Job
 from wormulon.utils import execute, serialize, dump_yaml
 from wormulon.utils import JobState
