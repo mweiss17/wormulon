@@ -21,7 +21,6 @@ def execute(command, capture_output=False, run_async=False):
     output = ("", "", 0)
     try:
         if run_async:
-            import os
             proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             os.set_blocking(proc.stdout.fileno(), False)
             os.set_blocking(proc.stderr.fileno(), False)

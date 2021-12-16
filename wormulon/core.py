@@ -1,6 +1,6 @@
 import io
 import uuid
-import time
+import datetime
 import subprocess
 from wormulon.utils import JobState
 
@@ -8,7 +8,7 @@ from wormulon.utils import JobState
 class Job:
     def __init__(self, timeout=60):
         self.job_id = uuid.uuid4().hex
-        self.last_heartbeat = time.time()
+        self.last_heartbeat = datetime.datetime.now()
         self.timeout = timeout
         self.outbuffer = io.StringIO()
         self.errbuffer = io.StringIO()
@@ -27,7 +27,7 @@ class Job:
 
     def last_heartbeat_at(self, relative_to_now=False):
         if relative_to_now:
-            return time.time() - self.last_heartbeat
+            return datetime.datetime.now() - self.last_heartbeat
         else:
             return self.last_heartbeat
 

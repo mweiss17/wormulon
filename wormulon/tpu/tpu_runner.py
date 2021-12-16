@@ -16,7 +16,7 @@ def _mp_fn(index, fn_call_buffer, bucket_name):
         fn_call.trainstate = TrainState.deserialize(trainstate_buf)
     fn_call.call()
 
-    print(f"Finished worker {index} with output: {fn_call.output}")
+    print(f"Finished worker {index} with output: {fn_call.outputs}")
 
 
 class JobRunner(object):

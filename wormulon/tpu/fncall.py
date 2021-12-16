@@ -31,7 +31,6 @@ class FunctionCall(object):
             self.outputs = self.trainer(self.trainstate)
         except Exception as e:
             traceback.print_exc()
-            print(e)
             self.outputs = ExceptionInJob(traceback.format_exc())
         finally:
             if isinstance(self.outputs, NotAvailable):

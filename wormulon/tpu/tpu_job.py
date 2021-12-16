@@ -59,8 +59,8 @@ class TPUJob(Job):
 
     @property
     def failed(self):
-        return ExceptionInJob.is_instance(self.job_output) or JobFailure.is_instance(
-            self.job_output
+        return ExceptionInJob.is_instance(self.function_call.outputs) or JobFailure.is_instance(
+            self.function_call.outputs
         )
 
     @property
@@ -92,33 +92,36 @@ class TPUJob(Job):
     # def __del__(self):
     #     self.clean_up()
 
-    async def launch(self, check_every=1):
-        self.tpu.ssh(self.cleanup, self.env)
-
-        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}))
-        self.tpu.bucket.upload(self.function_call_serialization_path, self.function_call.serialize())
-
-        # Run the job
-        for cmd in self.setup:
-            self.tpu.ssh(cmd, self.env)
-        self.tpu.ssh(self.install, self.env)
-        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
-
-        train_cmd = f"{self.train} {self.bucket.name} {self.working_directory}"
-        proc = self.tpu.ssh(train_cmd, self.env, run_async=True)
+    async def nonblocking_ssh(self, cmd, env, check_every=1):
+        proc = self.tpu.ssh(cmd, env, run_async=True)
 
         while True:
             out = proc.stdout.read()
             err = proc.stderr.read()
             self.outbuffer.write(out.decode("utf-8") if out else "")
             self.errbuffer.write(err.decode("utf-8") if err else "")
-            if self.is_alive:
+            poll = proc.poll()
+            if poll is None:
                 await asyncio.sleep(check_every)
             else:
-                print("Job was not alive. Returning.")
-                self.died = True
-                return None
-        return self.output
+                return poll
+
+    async def launch(self, check_every=1):
+        await self.nonblocking_ssh(self.cleanup, self.env)
+
+        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}))
+        self.tpu.bucket.upload(self.function_call_serialization_path, self.function_call.serialize())
+
+        # # Run the job
+        for cmd in self.setup:
+            await self.nonblocking_ssh(cmd, self.env)
+        await self.nonblocking_ssh(self.install, self.env)
+        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
+
+        train_cmd = f"{self.train} {self.bucket.name} {self.working_directory}"
+        print(f"Running train command: {train_cmd}")
+        await self.nonblocking_ssh(train_cmd, self.env)
+        return self.function_call.outputs
 
     def submit(self):
         return asyncio.ensure_future(self.launch())

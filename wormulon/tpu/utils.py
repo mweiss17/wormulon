@@ -20,7 +20,7 @@ def show_jobs(bucket_name, filter=None):
 @click.argument("bucket_name")
 @click.option("--filter")
 @click.option("--wipe")
-def cleanup_jobs(bucket_name, filter=None, wipe=False):
+def delete_jobs(bucket_name, filter=None, wipe=False):
     bucket = Bucket(bucket_name)
     if filter:
         filter = [JobState[filter]]
