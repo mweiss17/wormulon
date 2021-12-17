@@ -38,6 +38,8 @@ def execute(command, capture_output=False, run_async=False):
         )
     except subprocess.CalledProcessError as e:
         print(f"command failed with exit code {e}")
+        output = ("", "", 1)
+
     return output
 
 
