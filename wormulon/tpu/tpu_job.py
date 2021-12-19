@@ -11,18 +11,14 @@ from wormulon.tpu.fncall import FunctionCall
 
 class TPUJob(Job):
     def __init__(
-        self, trainer, train_state, tpu
+        self, trainer, tpu
     ):
         super().__init__()
         self.trainer = trainer
         self.bucket = Bucket(trainer.get("tpu/kwargs/bucket"))
         self.tpu = tpu
-        try:
-            self.train_state = self.bucket.get_latest_trainstate(trainer.experiment_directory)
-        except IndexError:
-            self.train_state = train_state
-        self.function_call = FunctionCall(trainer, self.train_state, trainer.get("job/kwargs"))
-
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}), overwrite=True)
+        self.train_state = None
 
     @property
     def working_directory(self):
@@ -106,16 +102,33 @@ class TPUJob(Job):
             else:
                 return poll
 
+    def arm(self, train_state, resume=False):
+        print("Arming job")
+        self.train_state = train_state
+
+        if resume:
+            try:
+                self.train_state = self.bucket.get_latest_trainstate(self.trainer.experiment_directory)
+            except IndexError:
+                pass
+        if not self.tpu.is_ready:
+            self.tpu.create()
+
     async def launch(self, check_every=1):
         await self.nonblocking_ssh(self.cleanup, self.env)
-
-        self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}))
+        assert self.train_state is not None
+        self.function_call = FunctionCall(self.trainer, self.train_state, self.trainer.get("job/kwargs"))
         self.tpu.bucket.upload(self.function_call_serialization_path, self.function_call.serialize())
 
-        # # Run the job
+        # setup the TPU
         for cmd in self.setup:
-            await self.nonblocking_ssh(cmd, self.env)
-        await self.nonblocking_ssh(self.install, self.env)
+            print(f"Running setup command: {cmd}")
+            stdout, stderr, retcode = self.tpu.ssh(cmd, self.env, capture_output=True)
+            # If we need to install everything we get an error and then do it here
+            if retcode == 1:
+                print(f"Installing {self.install}")
+                await self.nonblocking_ssh(self.install, self.env)
+                break
         self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
 
         train_cmd = f"{self.train} {self.bucket.name} {self.working_directory}"

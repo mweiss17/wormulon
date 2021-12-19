@@ -63,12 +63,11 @@ class TPUManager(object):
             if any(available_tpus):
                 name = available_tpus.pop()
                 print(f"Using existing TPU {name}")
-                tpu = TPU(name, **self.tpu_kwargs)
+                tpu = TPU(name, **self.tpu_kwargs, is_ready=True)
             else:
                 name = f"{self.project}-{max(self.tpu_ids) + 1}"
                 print(f"Creating new tpu {name}")
-                tpu = TPU(name, **self.tpu_kwargs)
-                tpu.create()
+                tpu = TPU(name, **self.tpu_kwargs, is_ready=False)
             tpus.append(tpu)
 
         return tpus

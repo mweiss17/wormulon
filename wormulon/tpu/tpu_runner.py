@@ -1,21 +1,23 @@
 import os
-import argparse
-import torch
 from wormulon.tpu.bucket import Bucket
-from wormulon.utils import ExceptionInJob, JobFailure, deserialize
 from wormulon.tpu.fncall import FunctionCall
 from wormulon.train_state import TrainState
+from wormulon.utils import dump_yaml, JobState
 import torch_xla.distributed.xla_multiprocessing as xmp
 import click
 
-def _mp_fn(index, fn_call_buffer, bucket_name):
+def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path, tpu_name):
     print(f"Starting worker {index}")
     fn_call = FunctionCall.deserialize(fn_call_buffer)
+    bucket = Bucket(bucket_name)
     if type(fn_call.trainstate) == str:
-        trainstate_buf = Bucket(bucket_name).download(fn_call.trainstate)
+        trainstate_buf = bucket.download(fn_call.trainstate)
         fn_call.trainstate = TrainState.deserialize(trainstate_buf)
     fn_call.call()
-
+    if fn_call.trainstate.step == fn_call.trainer.get("num_train_steps"):
+        bucket.upload(job_state_path, dump_yaml({"state": JobState.SUCCESS.value, "tpu_name": tpu_name}), overwrite=True)
+    else:
+        bucket.upload(job_state_path, dump_yaml({"state": JobState.FAILED.value, "tpu_name": tpu_name}), overwrite=True)
     print(f"Finished worker {index} with output: {fn_call.outputs}")
 
 

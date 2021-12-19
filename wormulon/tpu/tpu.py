@@ -17,6 +17,7 @@ class TPU:
         preemptible,
         bucket,
         project,
+        is_ready=False,
     ):
         self.name = name
         self.zone = zone
@@ -26,6 +27,7 @@ class TPU:
         self.acc_type = acc_type
         self.preemptible = preemptible
         self.bucket = Bucket(bucket)
+        self.is_ready = is_ready
 
 
     def __repr__(self):
@@ -52,6 +54,7 @@ class TPU:
 
             stdout, stderr, retcode = execute(command.split(), capture_output=True)
             if retcode == 0:
+                self.is_ready = True
                 return stdout
             else:
                 if retry:
@@ -71,7 +74,9 @@ class TPU:
             cmd = env_stmt + cmd
         command.append(cmd)
         stdout, stderr, retcode = execute(command, run_async=run_async, capture_output=capture_output)
-        return stdout
+        if run_async:
+            return stdout
+        return stdout, stderr, retcode
 
     @property
     def ip_address(self):
