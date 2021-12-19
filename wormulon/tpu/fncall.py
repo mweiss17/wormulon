@@ -39,7 +39,7 @@ class FunctionCall(object):
         return self
 
     def serialize(self):
-        buffer = pickle.dumps((self.trainer, self.trainstate, self.kwargs))
+        buffer = pickle.dumps((self.trainer, self.trainstate, self.tpu_name, self.kwargs))
         return buffer
 
     @classmethod

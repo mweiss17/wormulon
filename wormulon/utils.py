@@ -36,6 +36,7 @@ def execute(command, capture_output=False, run_async=False):
         print(
             f"command failed with {e}, taking longer than 300 seconds to finish."
         )
+        output = ("", "", 1)
     except subprocess.CalledProcessError as e:
         print(f"command failed with exit code {e}")
         output = ("", "", 1)

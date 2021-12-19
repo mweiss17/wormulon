@@ -57,6 +57,7 @@ class TPU:
                 self.is_ready = True
                 return stdout
             else:
+                print(f"{self.name} failed to create with error: {stdout}, {stderr}, {retcode}, retrying")
                 if retry:
                     time.sleep(10)
                 else:
