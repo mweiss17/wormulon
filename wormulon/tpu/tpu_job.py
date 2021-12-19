@@ -117,7 +117,7 @@ class TPUJob(Job):
     async def launch(self, check_every=1):
         await self.nonblocking_ssh(self.cleanup, self.env)
         assert self.train_state is not None
-        self.function_call = FunctionCall(self.trainer, self.train_state, self.trainer.get("job/kwargs"))
+        self.function_call = FunctionCall(self.trainer, self.train_state, self.trainer.get("job/kwargs"), self.tpu.name)
         self.tpu.bucket.upload(self.function_call_serialization_path, self.function_call.serialize())
 
         # setup the TPU

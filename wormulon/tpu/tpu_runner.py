@@ -6,7 +6,7 @@ from wormulon.utils import dump_yaml, JobState
 import torch_xla.distributed.xla_multiprocessing as xmp
 import click
 
-def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path, tpu_name):
+def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
     print(f"Starting worker {index}")
     fn_call = FunctionCall.deserialize(fn_call_buffer)
     bucket = Bucket(bucket_name)
@@ -15,9 +15,9 @@ def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path, tpu_name):
         fn_call.trainstate = TrainState.deserialize(trainstate_buf)
     fn_call.call()
     if fn_call.trainstate.step == fn_call.trainer.get("num_train_steps"):
-        bucket.upload(job_state_path, dump_yaml({"state": JobState.SUCCESS.value, "tpu_name": tpu_name}), overwrite=True)
+        bucket.upload(job_state_path, dump_yaml({"state": JobState.SUCCESS.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
     else:
-        bucket.upload(job_state_path, dump_yaml({"state": JobState.FAILED.value, "tpu_name": tpu_name}), overwrite=True)
+        bucket.upload(job_state_path, dump_yaml({"state": JobState.FAILED.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
     print(f"Finished worker {index} with output: {fn_call.outputs}")
 
 
@@ -41,7 +41,7 @@ class JobRunner(object):
 
     def run(self):
         fn_call_buffer = self.bucket.download(self.fn_call_path)
-        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name), nprocs=8, start_method="fork")
+        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name, self.job_state_path), nprocs=8, start_method="fork")
 
 
 @click.command(

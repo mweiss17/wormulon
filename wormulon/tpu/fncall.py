@@ -19,6 +19,7 @@ class FunctionCall(object):
     trainer: Callable
     trainstate: Any
     kwargs: dict
+    tpu_name: str
     outputs: Union[Any, NotAvailable] = NotAvailable()
     timeout: int = 2628000
 
