@@ -133,7 +133,7 @@ class TPUJob(Job):
 
         train_cmd = f"{self.train} {self.bucket.name} {self.working_directory}"
         print(f"Running train command: {train_cmd}")
-        await self.nonblocking_ssh(train_cmd, self.env)
+        await self.nonblocking_ssh(train_cmd, self.env, check_every=10)
         return self.function_call.outputs
 
     def submit(self):

@@ -1,4 +1,5 @@
 import os
+import sys
 from wormulon.tpu.bucket import Bucket
 from wormulon.tpu.fncall import FunctionCall
 from wormulon.train_state import TrainState
@@ -19,6 +20,7 @@ def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
     else:
         bucket.upload(job_state_path, dump_yaml({"state": JobState.FAILED.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
     print(f"Finished worker {index} with output: {fn_call.outputs}")
+    sys.exit(0)
 
 
 class JobRunner(object):
@@ -42,7 +44,6 @@ class JobRunner(object):
     def run(self):
         fn_call_buffer = self.bucket.download(self.fn_call_path)
         xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name, self.job_state_path), nprocs=8, start_method="fork")
-
 
 @click.command(
     context_settings=dict(ignore_unknown_options=True, allow_extra_trainstate=True)
