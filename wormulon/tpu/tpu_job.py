@@ -94,11 +94,15 @@ class TPUJob(Job):
         while True:
             out = proc.stdout.read()
             err = proc.stderr.read()
-            self.outbuffer.write(out.decode("utf-8") if out else "")
-            self.errbuffer.write(err.decode("utf-8") if err else "")
+            out = out.decode("utf-8") if out else ""
+            err = err.decode("utf-8") if err else ""
+            self.outbuffer.write(out)
+            self.errbuffer.write(err)
             poll = proc.poll()
             if poll is None:
                 await asyncio.sleep(check_every)
+            elif "Finished worker" in self.outbuffer.getvalue():
+                return True
             else:
                 return poll
 
