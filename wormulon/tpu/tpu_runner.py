@@ -8,19 +8,20 @@ import torch_xla.distributed.xla_multiprocessing as xmp
 import click
 
 def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
-    print(f"Starting worker {index}")
+    print(f"Starting worker {index}", flush=True)
     fn_call = FunctionCall.deserialize(fn_call_buffer)
     bucket = Bucket(bucket_name)
     if type(fn_call.trainstate) == str:
         trainstate_buf = bucket.download(fn_call.trainstate)
         fn_call.trainstate = TrainState.deserialize(trainstate_buf)
     fn_call.call()
+    print(f"Finished worker {index} with output: {fn_call.outputs}", flush=True)
 
     if fn_call.trainstate.step >= fn_call.trainer.get("num_train_steps") and index == 0:
         bucket.upload(job_state_path, dump_yaml({"state": JobState.SUCCESS.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
     elif index == 0:
         bucket.upload(job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
-    print(f"Finished worker {index} with output: {fn_call.outputs}")
+    print(f"Finished worker {index} with output: {fn_call.outputs}", flush=True)
     sys.exit(0)
 
 
