@@ -48,7 +48,9 @@ class TPUManager(object):
              print(f"Using existing TPU {name}")
              tpu = TPU(name, **self.tpu_kwargs)
         except Exception:
-            name = f"{self.project}-{max(self.tpu_ids) + 1}"
+            import random
+
+            name = f"{self.project}-{max(self.tpu_ids) + random.randint(10, 10000000)}"
             print(f"Creating new tpu {name}")
             tpu = TPU(name, **self.tpu_kwargs)
             tpu.create()

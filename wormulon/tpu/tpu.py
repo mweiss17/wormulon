@@ -39,7 +39,7 @@ class TPU:
             f"gcloud alpha compute tpus tpu-vm delete {self.name} --zone {self.zone} --async --quiet".split()
         )
 
-    def create(self, retry=True):
+    def create(self):
         while True:
             command = f"gcloud alpha compute tpus tpu-vm create {self.name} \
               --zone {self.zone} \
@@ -57,11 +57,7 @@ class TPU:
                 self.is_ready = True
                 return stdout
             else:
-                print(f"{self.name} failed to create with error: {stdout}, {stderr}, {retcode}, retrying")
-                if retry:
-                    time.sleep(10)
-                else:
-                    return stderr
+                return stderr
 
     def ssh(self, cmd, env_stmts=[], run_async=False, capture_output=False):
         command = (

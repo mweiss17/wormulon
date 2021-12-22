@@ -16,9 +16,9 @@ def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
         fn_call.trainstate = TrainState.deserialize(trainstate_buf)
     fn_call.call()
 
-    if fn_call.trainstate.step >= fn_call.trainer.get("num_train_steps"):
+    if fn_call.trainstate.step >= fn_call.trainer.get("num_train_steps") and index == 0:
         bucket.upload(job_state_path, dump_yaml({"state": JobState.SUCCESS.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
-    else:
+    elif index == 0:
         bucket.upload(job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
     print(f"Finished worker {index} with output: {fn_call.outputs}")
     sys.exit(0)
