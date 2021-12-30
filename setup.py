@@ -13,7 +13,10 @@ setup(
     entry_points={
         "console_scripts": [
             "submit = wormulon.submit:main",
+            "tpu_submit = wormulon.tpu.submit:main",
+            "tpu_nanny = wormulon.tpu.nanny:main",
             "salvo = wormulon.salvo:fire",
+            "tpu_salvo = wormulon.tpu.salvo:fire",
             "tpu_train = wormulon.tpu.tpu_runner:main",
             "show_jobs = wormulon.tpu.utils:show_jobs",
             "delete_jobs = wormulon.tpu.utils:delete_jobs",

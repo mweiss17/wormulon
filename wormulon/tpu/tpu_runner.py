@@ -1,5 +1,6 @@
 import os
 import sys
+import signal
 from wormulon.tpu.bucket import Bucket
 from wormulon.tpu.fncall import FunctionCall
 from wormulon.train_state import TrainState
@@ -15,7 +16,6 @@ def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
         trainstate_buf = bucket.download(fn_call.trainstate)
         fn_call.trainstate = TrainState.deserialize(trainstate_buf)
     fn_call.call()
-    print(f"Finished worker {index} with output: {fn_call.outputs}", flush=True)
 
     if fn_call.trainstate.step >= fn_call.trainer.get("num_train_steps") and index == 0:
         bucket.upload(job_state_path, dump_yaml({"state": JobState.SUCCESS.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
@@ -29,6 +29,8 @@ class JobRunner(object):
     def __init__(self, bucket_name, directory):
         self.bucket = Bucket(bucket_name)
         self.directory = directory
+        original_sigint = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, self.exit_gracefully)
 
     @property
     def fn_call_path(self):
@@ -46,6 +48,11 @@ class JobRunner(object):
     def run(self):
         fn_call_buffer = self.bucket.download(self.fn_call_path)
         xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name, self.job_state_path), nprocs=8, start_method="fork")
+
+    def exit_gracefully(self, signum, frame):
+        print("Exiting gracefully")
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.PREEMPTED.value, "tpu_name": self.fn_call.tpu_name}), overwrite=True)
+        sys.exit(0)
 
 @click.command(
     context_settings=dict(ignore_unknown_options=True, allow_extra_trainstate=True)

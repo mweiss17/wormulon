@@ -14,7 +14,9 @@ class JobState(Enum):
     ABORTED = 3
     TIMEOUT = 4
     STARTING = 5
-    PREEMPTED = 6
+    ARMED = 6
+    PREEMPTED = 7
+    UNKNOWN = 8
 
 
 def execute(command, capture_output=False, run_async=False):

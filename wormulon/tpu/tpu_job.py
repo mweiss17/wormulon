@@ -2,7 +2,7 @@ import os
 import asyncio
 import datetime
 from wormulon.core import Job
-from wormulon.utils import dump_yaml
+from wormulon.utils import dump_yaml, load_yaml
 from wormulon.utils import JobState
 from wormulon.tpu.bucket import Bucket
 from wormulon.tpu.fncall import FunctionCall
@@ -17,6 +17,7 @@ class TPUJob(Job):
         self.tpu = tpu
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}), overwrite=True)
         self.train_state = None
+        self.future = None
 
     @property
     def working_directory(self):
@@ -77,14 +78,14 @@ class TPUJob(Job):
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": self.tpu.name}), overwrite=True)
         return self
 
-    def get_status(self):
-        if self.last_heartbeat_at() > self.timeout:
-            return JobState.FAILURE
-        else:
-            return JobState.SUCCESS
-    #
-    # def __del__(self):
-    #     self.clean_up()
+    @property
+    def status(self):
+        try:
+            state = load_yaml(self.bucket.download(self.job_state_path).getvalue())['state']
+        except Exception as e:
+            print(e)
+            state = JobState.UNKNOWN.value
+        return JobState(state)
 
     async def nonblocking_ssh(self, cmd, env, check_every=1):
         proc = self.tpu.ssh(cmd, env, run_async=True)
@@ -115,6 +116,7 @@ class TPUJob(Job):
                 pass
         if not self.tpu.is_ready:
             self.tpu.create()
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.ARMED.value, "tpu_name": self.tpu.name}), overwrite=True)
 
     async def launch(self, check_every=1):
         await self.nonblocking_ssh(self.cleanup, self.env)
@@ -132,7 +134,6 @@ class TPUJob(Job):
                 await self.nonblocking_ssh(self.install, self.env)
                 break
         self.tpu.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
-
         train_cmd = f"{self.train} {self.bucket.name} {self.working_directory}"
         print(f"Running train command: {train_cmd}")
         await self.nonblocking_ssh(train_cmd, self.env, check_every=10)
@@ -140,3 +141,9 @@ class TPUJob(Job):
 
     def submit(self):
         return asyncio.ensure_future(self.launch())
+
+    def __eq__(self, other):
+        return self.job_id == other.job_id
+
+    def __hash__(self):
+        return hash(self.job_id)
