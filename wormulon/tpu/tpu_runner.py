@@ -29,8 +29,8 @@ class JobRunner(object):
     def __init__(self, bucket_name, directory):
         self.bucket = Bucket(bucket_name)
         self.directory = directory
-        original_sigint = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, self.exit_gracefully)
+        original_sigint = signal.getsignal(signal.SIGTERM)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
 
     @property
     def fn_call_path(self):
@@ -50,7 +50,7 @@ class JobRunner(object):
         xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name, self.job_state_path), nprocs=8, start_method="fork")
 
     def exit_gracefully(self, signum, frame):
-        print("Exiting gracefully")
+        print("Job is exiting gracefully")
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.PREEMPTED.value, "tpu_name": self.fn_call.tpu_name}), overwrite=True)
         sys.exit(0)
 

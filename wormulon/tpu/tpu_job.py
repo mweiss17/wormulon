@@ -114,6 +114,7 @@ class TPUJob(Job):
                 self.train_state = self.bucket.get_latest_trainstate(self.trainer.experiment_directory)
             except IndexError:
                 pass
+
         if not self.tpu.is_ready:
             self.tpu.create()
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.ARMED.value, "tpu_name": self.tpu.name}), overwrite=True)

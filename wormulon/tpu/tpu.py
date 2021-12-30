@@ -17,7 +17,6 @@ class TPU:
         preemptible,
         bucket,
         project,
-        is_ready=False,
     ):
         self.name = name
         self.zone = zone
@@ -27,11 +26,18 @@ class TPU:
         self.acc_type = acc_type
         self.preemptible = preemptible
         self.bucket = Bucket(bucket)
-        self.is_ready = is_ready
-
 
     def __repr__(self):
         return f"TPU({self.name})"
+
+    @property
+    def is_ready(self):
+        command = f"gcloud compute tpus list --format=value(NAME,STATUS) --zone {self.zone}"
+        stdout, stderr, retcode = execute(command.split(), capture_output=True)
+        rows = stdout.split("\n")
+        rows.remove("")
+        names = {r.split("\t")[0] for r in rows if r.split("\t")[1] == "READY"}
+        return self.name in names
 
     def delete(self):
         print(f"deleting tpu {self.name}")
@@ -54,7 +60,6 @@ class TPU:
 
             stdout, stderr, retcode = execute(command.split(), capture_output=True)
             if retcode == 0:
-                self.is_ready = True
                 return stdout
             else:
                 return stderr

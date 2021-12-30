@@ -55,6 +55,7 @@ class Nanny:
                     if job.status is not JobState.RUNNING:
                         print(f"{job} is not in RUNNING state")
                         continue
+
                     out = job.outbuffer.getvalue()
                     err = job.errbuffer.getvalue()
                     if out:
