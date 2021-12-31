@@ -53,12 +53,18 @@ class TPU:
               --subnetwork {self.subnet} \
               --range {self.netrange} \
               --accelerator-type {self.acc_type} \
-              --version tpu-vm-pt-1.10"
-
-            if self.preemptible:
-                command += " --preemptible"
-
-            stdout, stderr, retcode = execute(command.split(), capture_output=True)
+              --version tpu-vm-pt-1.10 \
+               {'--preemptible' if self.preemptible else ''}"
+            command = command.split()
+            command.append("--metadata")
+            command.append("shutdown-script=\'#! /bin/bash;"
+                           ""
+                           " pgrep -f python3 | xargs kill -SIGTERM;"
+                           " while pgrep -f python3 > /dev/null;"
+                           " do sleep 1; "
+                           "done; \'")
+            print(command)
+            stdout, stderr, retcode = execute(command, capture_output=True)
             if retcode == 0:
                 return stdout
             else:

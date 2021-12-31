@@ -1,12 +1,12 @@
 import os
 import sys
 import signal
+import click
 from wormulon.tpu.bucket import Bucket
 from wormulon.tpu.fncall import FunctionCall
 from wormulon.train_state import TrainState
 from wormulon.utils import dump_yaml, JobState
 import torch_xla.distributed.xla_multiprocessing as xmp
-import click
 
 def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
     print(f"Starting worker {index}", flush=True)
@@ -19,8 +19,6 @@ def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
 
     if fn_call.trainstate.step >= fn_call.trainer.get("num_train_steps") and index == 0:
         bucket.upload(job_state_path, dump_yaml({"state": JobState.SUCCESS.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
-    elif index == 0:
-        bucket.upload(job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": fn_call.tpu_name}), overwrite=True)
     print(f"Finished worker {index} with output: {fn_call.outputs}", flush=True)
     sys.exit(0)
 
@@ -47,11 +45,11 @@ class JobRunner(object):
 
     def run(self):
         fn_call_buffer = self.bucket.download(self.fn_call_path)
-        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name, self.job_state_path), nprocs=8, start_method="fork")
+        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name, self.job_state_path), nprocs=8, daemon=True, start_method="spawn")
 
     def exit_gracefully(self, signum, frame):
         print("Job is exiting gracefully")
-        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.PREEMPTED.value, "tpu_name": self.fn_call.tpu_name}), overwrite=True)
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.PREEMPTED.value}), overwrite=True)
         sys.exit(0)
 
 @click.command(
