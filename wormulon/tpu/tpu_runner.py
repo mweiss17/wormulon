@@ -45,7 +45,7 @@ class JobRunner(object):
 
     def run(self):
         fn_call_buffer = self.bucket.download(self.fn_call_path)
-        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name, self.job_state_path), nprocs=8, daemon=True, start_method="spawn")
+        xmp.spawn(_mp_fn, args=(fn_call_buffer.getvalue(), self.bucket.name, self.job_state_path), nprocs=8, daemon=False, start_method="fork")
 
     def exit_gracefully(self, signum, frame):
         print("Job is exiting gracefully")
