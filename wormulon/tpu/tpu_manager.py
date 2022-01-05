@@ -31,7 +31,7 @@ class TPUManager(object):
 
     @property
     def busy_tpus(self):
-        return {job.get("tpu_name") for job in self.bucket.list_jobs(filters=[JobState.RUNNING, JobState.STARTING])}
+        return {job.get("tpu_name") for job in self.bucket.list_jobs(filters=[JobState.RUNNING, JobState.STARTING, JobState.ARMED])}
 
     @property
     def available_tpus(self):
@@ -56,16 +56,15 @@ class TPUManager(object):
     def get_tpus(self, num_tpus):
         tpus = []
         available_tpus = self.available_tpus.copy()
-
         for _ in range(num_tpus):
             if any(available_tpus):
                 name = available_tpus.pop()
                 print(f"Using existing TPU {name}")
-                tpu = TPU(name, **self.tpu_kwargs, is_ready=True)
+                tpu = TPU(name, **self.tpu_kwargs)
             else:
                 name = f"{self.project}-{max(self.tpu_ids) + 1}"
                 print(f"Creating new tpu {name}")
-                tpu = TPU(name, **self.tpu_kwargs, is_ready=False)
+                tpu = TPU(name, **self.tpu_kwargs)
             tpus.append(tpu)
 
         return tpus

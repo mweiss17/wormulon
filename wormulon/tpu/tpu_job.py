@@ -8,14 +8,13 @@ from wormulon.tpu.bucket import Bucket
 from wormulon.tpu.fncall import FunctionCall
 
 class TPUJob(Job):
-    def __init__(
-        self, trainer, tpu
-    ):
+    def __init__(self, trainer):
         super().__init__()
         self.trainer = trainer
         self.bucket = Bucket(trainer.get("tpu/kwargs/bucket"))
-        self.tpu = tpu
-        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value, "tpu_name": self.tpu.name}), overwrite=True)
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value}), overwrite=True)
+        self.created_at = datetime.datetime.now()
+        self.tpu = None
         self.train_state = None
         self.future = None
 
@@ -105,9 +104,10 @@ class TPUJob(Job):
             else:
                 return poll
 
-    def arm(self, train_state, resume=False):
+    def arm(self, train_state, tpu, resume=False):
         print("Arming job")
         self.train_state = train_state
+        self.tpu = tpu
 
         if resume:
             try:
@@ -116,8 +116,12 @@ class TPUJob(Job):
                 pass
 
         if not self.tpu.is_ready:
-            self.tpu.create()
+            stderr, retcode = self.tpu.create()
+            if retcode != 0:
+                return False
+
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.ARMED.value, "tpu_name": self.tpu.name}), overwrite=True)
+        return True
 
     async def launch(self, check_every=1):
         await self.nonblocking_ssh(self.cleanup, self.env)
@@ -144,7 +148,10 @@ class TPUJob(Job):
         return asyncio.ensure_future(self.launch())
 
     def __eq__(self, other):
-        return self.job_id == other.job_id
+        return self.job_id == other.job_id and self.created_at == other.created_at
 
     def __hash__(self):
         return hash(self.job_id)
+
+    def __repr__(self):
+        return f"Job({self.job_id}), {self.tpu}, {self.status}"

@@ -66,9 +66,9 @@ class TPU:
             print(command)
             stdout, stderr, retcode = execute(command, capture_output=True)
             if retcode == 0:
-                return stdout
+                return stdout, retcode
             else:
-                return stderr
+                return stderr, retcode
 
     def ssh(self, cmd, env_stmts=[], run_async=False, capture_output=False):
         command = (
@@ -94,3 +94,6 @@ class TPU:
 
     def clean_up(self):
         self.ssh("pkill -9 python3")
+
+    def __eq__(self, other):
+        return self is not None and other is not None and self.name == other.name

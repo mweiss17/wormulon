@@ -17,12 +17,13 @@ class Nanny:
         super(Nanny, self).__init__()
         self.jobs = defaultdict(set)
         self.experiment_directory = experiment_directory
+        self.manager = None
         original_sigint = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self.exit_gracefully)
 
     def setup_wandb(self, trainer):
-        wandb_run = wandb.init(job_type=trainer.WANDB_JOB_TYPE, dir=trainer.wandb_directory, resume=False,
-                               project=trainer.WANDB_PROJECT, config=trainer.wandb_config, entity=trainer.WANDB_ENTITY)
+        wandb_run = wandb.init(name=trainer.wandb_run_name, job_type=trainer.WANDB_JOB_TYPE, dir=trainer.wandb_directory,
+                               resume=False, project=trainer.WANDB_PROJECT, config=trainer.wandb_config, entity=trainer.WANDB_ENTITY)
         wandb.finish()
         return wandb_run.id
 
@@ -36,13 +37,28 @@ class Nanny:
 
     async def launch_jobs(self):
         for job_dir, jobs in self.jobs.items():
-            for job in jobs:
-                if job.future is not None:
+            tpus = []
+            for job_ix, job in enumerate(jobs):
+                if job.future is not None and job.status is not JobState.PREEMPTED.value:
                     continue
-                train_state = TrainState.initial_state(step=0, epoch=0, misc_attributes={
-                    "wandb_run_id": self.setup_wandb(job.trainer)})
 
-                job.arm(train_state, resume=True)
+                if self.manager is None:
+                    self.manager = TPUManager(**job.trainer.get("tpu/kwargs"))
+                tpus = self.manager.get_tpus(job.trainer.get("distributed/kwargs/world_size"))
+                print(f"Launching job-{job_ix} {job} on TPU: {tpus[job_ix]}")
+
+                env_stmts = job.trainer.get("job/kwargs/env_stmts")
+                env_stmts.append(f"export WANDB_API_KEY={os.environ.get('WANDB_API_KEY', '')};")
+                job.trainer.set('job/kwargs/env_stmts', env_stmts)
+                if len(tpus) > 1:
+                    trainer.set("distributed/kwargs/init_method", f"tcp://{tpus[0].ip_address}:2345")
+                job.trainer.set('distributed/kwargs/rank', job_ix)
+                train_state = TrainState.initial_state(step=0, epoch=0, misc_attributes={"wandb_run_id": self.setup_wandb(job.trainer)})
+
+                success = job.arm(train_state, tpus[job_ix], resume=True)
+                if not success:
+                    print(f"Failed to launch job-{job_ix} {job} on TPU: {tpus[job_ix]}")
+                    continue
                 future = job.submit()
                 job.future = future
 

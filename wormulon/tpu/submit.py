@@ -21,18 +21,9 @@ class TPUSubmitter:
         super(TPUSubmitter, self).__init__()
 
     def create_jobs(self, trainer):
-        manager = TPUManager(**trainer.get("tpu/kwargs"))
-        tpus = manager.get_tpus(trainer.get("distributed/kwargs/world_size"))
-        jobs = []
-        for i, tpu in enumerate(tpus):
-            print(f"Dibs on TPU: {tpu}, creating job-{i}")
-            env_stmts = trainer.get("job/kwargs/env_stmts")
-            env_stmts.append(f"export WANDB_API_KEY={os.environ.get('WANDB_API_KEY', '')};")
-            trainer.set('job/kwargs/env_stmts', env_stmts)
-            if len(tpus) > 1:
-                trainer.set("distributed/kwargs/init_method", f"tcp://{tpus[0].ip_address}:2345")
-            trainer.set('distributed/kwargs/rank', i)
-            job = TPUJob(trainer, tpu)
+        for i in range(trainer.get("distributed/kwargs/world_size")):
+            print(f"creating job-{i}")
+            job = TPUJob(trainer)
             pickle.dump(job, open(f"{trainer.experiment_directory}/Logs/job-{job.trainer.get('distributed/kwargs/rank')}.pkl", "wb"))
 
 
