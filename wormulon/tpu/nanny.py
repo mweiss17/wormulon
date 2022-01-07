@@ -17,7 +17,7 @@ class Nanny:
         super(Nanny, self).__init__()
         self.jobs = defaultdict(set)
         self.experiment_directory = experiment_directory
-        self.manager = None
+        self.managers = {}
         original_sigint = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self.exit_gracefully)
 
@@ -37,14 +37,13 @@ class Nanny:
 
     async def launch_jobs(self):
         for job_dir, jobs in self.jobs.items():
-            tpus = []
             for job_ix, job in enumerate(jobs):
-                if job.future is not None and job.status is not JobState.PREEMPTED.value:
+                if job.future is not None and job.status is not JobState.PREEMPTED:
                     continue
-
-                if self.manager is None:
-                    self.manager = TPUManager(**job.trainer.get("tpu/kwargs"))
-                tpus = self.manager.get_tpus(job.trainer.get("distributed/kwargs/world_size"))
+                zone = job.trainer.get("tpu/kwargs/bucket")
+                if self.managers.get(zone) is None:
+                    self.managers[zone] = TPUManager(**job.trainer.get("tpu/kwargs"))
+                tpus = self.managers[zone].get_tpus(job.trainer.get("distributed/kwargs/world_size"))
                 print(f"Launching job-{job_ix} {job} on TPU: {tpus[job_ix]}")
 
                 env_stmts = job.trainer.get("job/kwargs/env_stmts")
@@ -66,7 +65,7 @@ class Nanny:
         for job_dir, jobs in self.jobs.items():
             for job in jobs:
                 with open(f"{job.trainer.experiment_directory}/Logs/submission.txt", "w") as f:
-                    print(f"check_logs. {job_dir}. job.future: {job.future}, job.status: {job.status}")
+                    print(f"monitoring job-{job.trainer.get('distributed/kwargs/rank')}: {job_dir}, status: {job.status}")
 
                     if job.status is not JobState.RUNNING:
                         print(f"{job} is not in RUNNING state")

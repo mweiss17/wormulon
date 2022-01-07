@@ -14,29 +14,20 @@ from wormulon.tpu.tpu_manager import TPUManager
 from wormulon.tpu.tpu_job import TPUJob
 from wormulon.train_state import TrainState
 
-
-class TPUSubmitter:
-
-    def __init__(self):
-        super(TPUSubmitter, self).__init__()
-
-    def create_jobs(self, trainer):
-        for i in range(trainer.get("distributed/kwargs/world_size")):
-            print(f"creating job-{i}")
-            job = TPUJob(trainer)
-            pickle.dump(job, open(f"{trainer.experiment_directory}/Logs/job-{job.trainer.get('distributed/kwargs/rank')}.pkl", "wb"))
-
-
-@click.command(
-    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
-)
-@click.argument("train_script")
-@click.argument("train_cls")
-@click.option("--mem_gb")
-@click.option("--cpus_per_task")
-@click.option("--slurm_gres")
-def main(train_script, train_cls, **kwargs):
+def submit_job(train_script, train_cls, *args):
     exec(f"from {train_script} import {train_cls}")
-    sys.argv = [sys.argv[0]] + sys.argv[3:]
+    sys.argv = [train_script] + list(args)
     trainer = eval(train_cls)()
-    TPUSubmitter().create_jobs(trainer)
+    jobs = []
+    for i in range(trainer.get("distributed/kwargs/world_size")):
+        print(f"creating job-{i}")
+        job = TPUJob(trainer)
+        jobs.append(job)
+        pickle.dump(job,
+                    open(f"{trainer.experiment_directory}/Logs/job-{job.trainer.get('distributed/kwargs/rank')}.pkl",
+                         "wb"))
+
+@click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
+@click.pass_context
+def main(kwargs):
+    submit_job(kwargs.args[0], kwargs.args[1], *kwargs.args[2:])
