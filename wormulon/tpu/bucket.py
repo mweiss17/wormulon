@@ -106,7 +106,8 @@ class Bucket(object):
         if self.exists(path) and not overwrite:
             print(f"{path} already exists")
             return
-        print(f"Uploading {self.name}/{path}")
+        print(f"Uploading to {self.name}/{path}")
+
         client = storage.Client()
         blob = storage.blob.Blob.from_string("gs://" + self.name + "/" + path)
         blob.bucket._client = client

@@ -9,6 +9,7 @@ class TPUManager(object):
         self.zone = kwargs.get("zone")
         self.project = kwargs.get("project")
         self.tpu_kwargs = kwargs
+        self.disarmed_but_busy_tpus = set()
 
     @property
     def tpu_ids(self):
@@ -18,6 +19,7 @@ class TPUManager(object):
         ids.remove("")
         int_ids = [-1]
         int_ids.extend([int(i.split("-")[-1]) for i in ids])
+        int_ids.extend([int(i.split("-")[-1]) for i in self.disarmed_but_busy_tpus])
         return int_ids
 
     @property
@@ -35,27 +37,12 @@ class TPUManager(object):
 
     @property
     def available_tpus(self):
-        return self.ready_tpus - self.busy_tpus
-
-    def get_or_create_tpu(self):
-        """ Returns a TPU object if one is available (not running a job), otherwise creates a new one """
-        try:
-             name = self.available_tpus.pop()
-             print(f"Using existing TPU {name}")
-             tpu = TPU(name, **self.tpu_kwargs)
-        except Exception:
-            import random
-
-            name = f"{self.project}-{max(self.tpu_ids) + random.randint(10, 10000000)}"
-            print(f"Creating new tpu {name}")
-            tpu = TPU(name, **self.tpu_kwargs)
-            tpu.create()
-        return tpu
-
+        return (self.ready_tpus - self.busy_tpus) - self.disarmed_but_busy_tpus
 
     def get_tpus(self, num_tpus):
         tpus = []
         available_tpus = self.available_tpus.copy()
+        # print(f"available_tpus: {available_tpus}, disarmed_but_busy: {self.disarmed_but_busy_tpus}")
         for _ in range(num_tpus):
             if any(available_tpus):
                 name = available_tpus.pop()
@@ -65,6 +52,6 @@ class TPUManager(object):
                 name = f"{self.project}-{max(self.tpu_ids) + 1}"
                 print(f"Creating new tpu {name}")
                 tpu = TPU(name, **self.tpu_kwargs)
+                self.disarmed_but_busy_tpus.add(tpu.name)
             tpus.append(tpu)
-
         return tpus

@@ -13,8 +13,12 @@ def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
     fn_call = FunctionCall.deserialize(fn_call_buffer)
     bucket = Bucket(bucket_name)
     if type(fn_call.trainstate) == str:
-        trainstate_buf = bucket.download(fn_call.trainstate)
-        fn_call.trainstate = TrainState.deserialize(trainstate_buf)
+        try:
+            train_state = bucket.get_latest_trainstate(fn_call.trainer.experiment_directory)
+        except IndexError:
+            trainstate_buf = bucket.download(fn_call.trainstate)
+            train_state = TrainState.deserialize(trainstate_buf)
+        fn_call.trainstate = train_state
     fn_call.call()
 
     if fn_call.trainstate.step >= fn_call.trainer.get("num_train_steps") and index == 0:
