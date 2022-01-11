@@ -91,13 +91,9 @@ class TPUJob(Job):
             pickle.dump(self, fp)
 
     def update_train_state(self):
-        try:
-            self.train_state = self.bucket.get_latest_trainstate(self.trainer.experiment_directory)
-            self.write_to_logfile(f"Retrieved train state on step {self.train_state.step}")
-        except IndexError:
-            self.train_state = TrainState.initial_state(step=0, epoch=0,
-                                                   misc_attributes={"wandb_run_id": self.setup_wandb()})
-            self.write_to_logfile("New train state initialized to step 0.")
+        self.train_state = TrainState.initial_state(step=0, epoch=0,
+                                               misc_attributes={"wandb_run_id": self.setup_wandb()})
+        self.write_to_logfile("New train state initialized to step 0.")
 
     def setup_wandb(self):
         wandb_run = wandb.init(name=self.trainer.wandb_run_name, job_type=self.trainer.WANDB_JOB_TYPE,

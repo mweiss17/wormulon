@@ -52,6 +52,7 @@ class Nanny:
         for job_ix, job in enumerate(self.jobs.values()):
             if job.status in {JobState.ARMED, JobState.RUNNING, JobState.SUCCESS}:
                 continue
+            print(f"Launching job {job}")
             self.setup_job(job)
             if self.job_procs.get(job.job_id) is not None:
                 self.job_procs[job.job_id].terminate()

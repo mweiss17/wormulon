@@ -15,7 +15,8 @@ def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
     if type(fn_call.trainstate) == str:
         try:
             train_state = bucket.get_latest_trainstate(fn_call.trainer.experiment_directory)
-        except IndexError:
+        except IndexError as e:
+            print(f"{e}. Failed to get_latest_trainstate, getting one on the functioncall")
             trainstate_buf = bucket.download(fn_call.trainstate)
             train_state = TrainState.deserialize(trainstate_buf)
         fn_call.trainstate = train_state
