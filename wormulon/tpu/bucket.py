@@ -22,7 +22,7 @@ class Bucket(object):
             blobs = [blob for blob in blobs if filter in blob.name]
         return blobs
 
-    def list_jobs(self, filters = [], verbose: bool = True):
+    def list_jobs(self, filters = []):
         results = []
         blobs = self.list(filter="jobstate")
         for blob in blobs:
@@ -37,14 +37,6 @@ class Bucket(object):
             for filter in filters:
                 if jobstate.get("state") == filter.name:
                     results.append(jobstate)
-
-        if verbose:
-            if len(results) == 0:
-                print("No jobs found")
-            else:
-                print("Found the following jobs:\n")
-                for result in results:
-                    print(result)
         return results
 
     def list_experiments(self):

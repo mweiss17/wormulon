@@ -84,7 +84,6 @@ class Nanny:
                 job.clean_up()
                 del self.job_procs[job_id]
 
-
     def run(self):
         while True:
             self.find_jobs()
