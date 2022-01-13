@@ -19,7 +19,7 @@ class JobState(Enum):
     UNKNOWN = 8
 
 
-def execute(command, capture_output=False, run_async=False):
+def execute(command, capture_output=False, run_async=False, check=True, timeout=100):
     output = ("", "", 0)
     try:
         if run_async:
@@ -29,18 +29,18 @@ def execute(command, capture_output=False, run_async=False):
             return proc, None, None
         elif capture_output:
             output = subprocess.run(
-                command, capture_output=capture_output, timeout=300, check=True
+                command, capture_output=capture_output, timeout=timeout, check=check
             )
             output = output.stdout.decode("utf-8"), output.stderr.decode("utf-8"), output.returncode
         else:
-            subprocess.run(command, check=True)
+            subprocess.run(command, check=check)
     except subprocess.TimeoutExpired as e:
         print(
-            f"command failed with {e}, taking longer than 300 seconds to finish."
+            f"command failed with {e}, taking longer than 100 seconds to finish."
         )
         output = ("", "", 1)
     except subprocess.CalledProcessError as e:
-        print(f"command failed with exit code {e}")
+        print(f"ssh command failed {e}")
         output = ("", "", 1)
 
     return output

@@ -63,14 +63,13 @@ class TPU:
                            " while pgrep -f python3 > /dev/null;"
                            " do sleep 1; "
                            "done; \'")
-            print(command)
-            stdout, stderr, retcode = execute(command, capture_output=True)
+            stdout, stderr, retcode = execute(command, capture_output=True, timeout=300)
             if retcode == 0:
                 return stdout, retcode
             else:
                 return stderr, retcode
 
-    def ssh(self, cmd, env_stmts=[], run_async=False, capture_output=False):
+    def ssh(self, cmd, env_stmts=[], run_async=False, capture_output=False, check=True):
         command = (
             f"gcloud alpha compute tpus tpu-vm ssh "
             f"{self.name} "
@@ -81,7 +80,7 @@ class TPU:
         for env_stmt in env_stmts:
             cmd = env_stmt + cmd
         command.append(cmd)
-        stdout, stderr, retcode = execute(command, run_async=run_async, capture_output=capture_output)
+        stdout, stderr, retcode = execute(command, run_async=run_async, capture_output=capture_output, check=check)
         if run_async:
             return stdout
         return stdout, stderr, retcode

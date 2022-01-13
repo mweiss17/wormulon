@@ -82,6 +82,29 @@ class TPUJob(Job):
             self.function_call.outputs
         )
 
+    def nonblocking_ssh(self, cmd, env):
+        proc = self.tpu.ssh(cmd, env, run_async=True)
+
+        while True:
+            curtime = time.strftime('%X')
+            out = proc.stdout.read()
+            err = proc.stderr.read()
+            out = out.decode("utf-8") if out else ""
+            err = err.decode("utf-8") if err else ""
+            if out != "":
+                out = f"{self.name}, {self.tpu}, {curtime}, job-{self.trainer.get('distributed/kwargs/rank')}: {out}"
+                self.write_to_logfile(out)
+            if err != "":
+                err = f"{self.name}, {self.tpu}, {curtime}, job-{self.trainer.get('distributed/kwargs/rank')}: {err}"
+                self.write_to_logfile(err)
+            poll = proc.poll()
+            if poll is None:
+                time.sleep(1)
+            elif "Finished worker" in out:
+                return True
+            else:
+                return poll
+
     @property
     def local_pickle_path(self):
         return f"{self.trainer.experiment_directory}/Logs/job-{self.trainer.get('distributed/kwargs/rank')}.pkl"
@@ -118,10 +141,14 @@ class TPUJob(Job):
         return True
 
     def clean_up(self):
-        self.write_to_logfile(f"Cleaning up job: {self.remote_working_directory}")
-        self.tpu.ssh(self.cleanup, self.env)
-        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": self.tpu.name}), overwrite=True)
-        return self
+        name = ""
+        if self.tpu is not None:
+            name = self.tpu.name
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": name}), overwrite=True)
+        if self.tpu:
+            print(f"{self.tpu} is now available")
+        if self.train_state is not None:
+            print(f"exited {self.train_state.misc_attributes.get('wandb_run_url')}")
 
     @property
     def status(self):
@@ -131,29 +158,6 @@ class TPUJob(Job):
             self.write_to_logfile(e)
             state = JobState.UNKNOWN.value
         return JobState(state)
-
-    def nonblocking_ssh(self, cmd, env):
-        proc = self.tpu.ssh(cmd, env, run_async=True)
-
-        while True:
-            curtime = time.strftime('%X')
-            out = proc.stdout.read()
-            err = proc.stderr.read()
-            out = out.decode("utf-8") if out else ""
-            err = err.decode("utf-8") if err else ""
-            if out != "":
-                out = f"{self.name}, {self.tpu}, {curtime}, job-{self.trainer.get('distributed/kwargs/rank')}: {out}"
-                self.write_to_logfile(out)
-            if err != "":
-                err = f"{self.name}, {self.tpu}, {curtime}, job-{self.trainer.get('distributed/kwargs/rank')}: {err}"
-                self.write_to_logfile(err)
-            poll = proc.poll()
-            if poll is None:
-                time.sleep(1)
-            elif "Finished worker" in out:
-                return True
-            else:
-                return poll
 
     def set_tpu(self, tpu):
         self.tpu = tpu
@@ -173,23 +177,24 @@ class TPUJob(Job):
         self.update_train_state()
         success = self.arm()
         if not success:
-            self.write_to_logfile(f"Failed to launch {self} on TPU: {tpu}")
+            self.write_to_logfile(f"Failed to launch {self} on TPU: {self.tpu}")
             return None
         self.write_to_logfile("cleanup")
-
-        self.nonblocking_ssh(self.cleanup, self.env)
-        assert self.train_state is not None
+        self.tpu.ssh(self.cleanup, self.env, check=False)
         self.function_call = FunctionCall(self.trainer, self.train_state, self.trainer.get("job/kwargs"), self.tpu.name)
         self.bucket.upload(self.function_call_serialization_path, self.function_call.serialize(), overwrite=True)
 
         # setup the TPU
         for cmd in self.setup:
             self.write_to_logfile(f"Running setup command: {cmd}")
-            stdout, stderr, retcode = self.tpu.ssh(cmd, self.env, capture_output=True)
+            _, _, retcode = self.tpu.ssh(cmd, self.env, capture_output=True)
             # If we need to install everything we get an error and then do it here
             if retcode == 1:
                 self.write_to_logfile(f"Installing {self.install}")
-                self.nonblocking_ssh(self.install, self.env)
+                _, _, retcode = self.tpu.ssh(self.install, self.env, run_async=False, capture_output=True)
+                if retcode != 0:
+                    self.clean_up()
+                    raise Exception(f"Failed to install {self.install}")
                 break
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)
         train_cmd = f"{self.train} {self.bucket.name} {self.remote_working_directory}"
@@ -204,4 +209,4 @@ class TPUJob(Job):
         return hash(self.job_id)
 
     def __repr__(self):
-        return f"Job({self.job_id}), {self.tpu}"
+        return f"{self.name}, {self.tpu}, {self.created_at}"
