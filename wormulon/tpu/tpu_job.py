@@ -1,9 +1,9 @@
 import os
 import asyncio
-import datetime
 import pickle
 import time
 import wandb
+from datetime import datetime, timezone, timedelta
 from wormulon.core import Job
 from wormulon.utils import dump_yaml, load_yaml
 from wormulon.utils import JobState
@@ -17,7 +17,7 @@ class TPUJob(Job):
         self.trainer = trainer
         self.bucket = Bucket(trainer.get("tpu/kwargs/bucket"))
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.STARTING.value}), overwrite=True)
-        self.created_at = datetime.datetime.now()
+        self.created_at = datetime.now(tz=timezone.utc)
         self.tpu = None
         self.train_state = None
 
@@ -134,7 +134,12 @@ class TPUJob(Job):
         if data is None:
             return True
 
-        if data.updated > self.last_heartbeat + datetime.timedelta(seconds=30):
+        print(f"updated: {data.updated}, self.last_heartbeat: {self.last_heartbeat}")
+
+        if self.last_heartbeat is None:
+            self.last_heartbeat = data.updated
+
+        if data.updated > (self.last_heartbeat + timedelta(seconds=300)):
             return False
 
         self.last_heartbeat = data.updated

@@ -28,9 +28,11 @@ class Nanny:
         signal.signal(signal.SIGINT, self.exit_gracefully)
 
     def write_to_logfile(self, message, verbose=False):
+        curtime = time.strftime('%X')
+        message = f"{curtime}: {message}"
         if verbose:
             print(message, flush=True)
-        with open("nanny.txt", "a") as fp:
+        with open("experiments/nanny-log.txt", "a") as fp:
             fp.write(f"{message}\n")
 
     def find_jobs(self):
@@ -50,7 +52,7 @@ class Nanny:
 
     def add_wandb_api_key(self, job):
         env_stmts = job.trainer.get("job/kwargs/env_stmts")
-        env_stmts.add(f"export WANDB_API_KEY={os.environ.get('WANDB_API_KEY', '')};")
+        env_stmts[f"export WANDB_API_KEY={os.environ.get('WANDB_API_KEY', '')};"] = None
         job.trainer.set('job/kwargs/env_stmts', env_stmts)
         os.environ["WANDB_SILENT"] = "True"
 
@@ -74,14 +76,13 @@ class Nanny:
         # iterates over job_procs that have died
         for job_id, job in self.jobs.items():
             job_proc = self.job_procs.get(job_id)
-            if job_proc is not None and not job_proc.is_alive():
+            if job_proc is None:
+                continue
+
+            if not job_proc.is_alive() or not job.is_alive:
                 self.write_to_logfile(f"Nanny is cleaning up the dead proc: {job}.")
                 job.clean_up()
                 del self.job_procs[job_id]
-            breakpoint()
-
-            # Checks heartbeats on storage
-            # TODO: Implement this
 
 
     def run(self):
