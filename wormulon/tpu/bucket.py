@@ -133,7 +133,10 @@ class Bucket(object):
     def delete(self, path):
         client = storage.Client()
         bucket = client.get_bucket(self.name)
-        return bucket.blob(path).delete()
+        try:
+            bucket.blob(path).delete()
+        except Exception:
+            pass
 
     def delete_all(self, path):
         client = storage.Client()

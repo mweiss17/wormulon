@@ -74,15 +74,23 @@ class Nanny:
 
     def cleanup(self):
         # iterates over job_procs that have died
+        to_remove = []
         for job_id, job in self.jobs.items():
             job_proc = self.job_procs.get(job_id)
             if job_proc is None:
                 continue
-
-            if not job_proc.is_alive() or not job.is_alive:
-                self.write_to_logfile(f"Nanny is cleaning up the dead proc: {job}.")
+            proc_died = not job_proc.is_alive()
+            heartbeat_stopped = not job.is_alive
+            if proc_died or heartbeat_stopped:
+                self.write_to_logfile(f"Nanny cleaning up the dead job {job.name} with heartbeat stopped: {heartbeat_stopped} and proc_died: {proc_died}.")
+                job.write_to_logfile(f"Nanny cleaning up the dead job {job.name} with heartbeat stopped: {heartbeat_stopped} and proc_died: {proc_died}.")
                 job.clean_up()
                 del self.job_procs[job_id]
+                to_remove.append(job_id)
+
+        for job_id in to_remove:
+            del self.jobs[job_id]
+
 
     def run(self):
         while True:

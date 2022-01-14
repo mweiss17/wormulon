@@ -1,3 +1,4 @@
+import io
 import os
 import asyncio
 import pickle
@@ -113,11 +114,6 @@ class TPUJob(Job):
         with open(self.local_pickle_path, "wb") as fp:
             pickle.dump(self, fp)
 
-    def update_train_state(self):
-        self.train_state = TrainState.initial_state(step=0, epoch=0,
-                                               misc_attributes={"wandb_run_id": self.setup_wandb()})
-        self.write_to_logfile("New train state initialized to step 0.")
-
     def setup_wandb(self):
         wandb_run = wandb.init(name=self.trainer.wandb_run_name, job_type=self.trainer.WANDB_JOB_TYPE,
                                dir=self.trainer.wandb_directory,
@@ -126,34 +122,13 @@ class TPUJob(Job):
         wandb.finish()
         return wandb_run.id
 
-    @property
-    def is_alive(self):
-        data = self.bucket.get_blob(self.trainer.experiment_directory + "/heartbeat")
-
-        # No heartbeat file means the job hasn't started yet
-        if data is None:
-            return True
-
-        print(f"updated: {data.updated}, self.last_heartbeat: {self.last_heartbeat}")
-
-        if self.last_heartbeat is None:
-            self.last_heartbeat = data.updated
-
-        if data.updated > (self.last_heartbeat + timedelta(seconds=300)):
-            return False
-
-        self.last_heartbeat = data.updated
-        return True
-
     def clean_up(self):
+        self.write_to_logfile("Clean_up called.")
         name = ""
         if self.tpu is not None:
             name = self.tpu.name
-        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": name}), overwrite=True)
-        if self.tpu:
             print(f"{self.tpu} is now available")
-        if self.train_state is not None:
-            print(f"exited {self.train_state.misc_attributes.get('wandb_run_url')}")
+        self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.FAILURE.value, "tpu_name": name}), overwrite=True)
 
     @property
     def status(self):
@@ -178,13 +153,60 @@ class TPUJob(Job):
 
         return True
 
+    @property
+    def is_alive(self):
+        """ Covers several cases:
+        1. if the job has started running and is pre-empted -> return False
+        2. if the job has NOT started running and is pre-empted -> return False
+        """
+        blob = self.bucket.get_blob(self.job_state_path)
+
+        # No Job State file means this job is dead, otherwise get the blob
+        if blob is not None:
+            updated = blob.updated
+        else:
+            return False
+
+        # Get Job State from server
+        bytes = blob.download_as_bytes()
+        buffer = io.BytesIO(bytes)
+        state = JobState(load_yaml(buffer.getvalue())['state'])
+
+        self.write_to_logfile(f"updated: {updated}, self.last_heartbeat: {self.last_heartbeat}, state: {state}")
+
+        # If the state is ARMED, then we haven't really "Started" the job yet, so return True
+        if state == JobState.ARMED:
+            return True
+
+        # if the job is running, and we haven't set the heartbeat yet, set it (happens ONCE)
+        elif state == JobState.RUNNING:
+            # Happens once
+            if self.last_heartbeat is None:
+                self.last_heartbeat = updated
+                return True
+
+            if updated > (self.last_heartbeat + timedelta(seconds=300)):
+                return False
+
+            self.last_heartbeat = updated
+            return True
+        else:
+            raise Exception(f"Unknown state in is_alive, wtf? state: {state}")
+
     def launch(self):
-        self.update_train_state()
+        """ Need to set is_alive to False at the correct moments, or raise an exception to kill the job."""
+        self.write_to_logfile("Launching job")
+
+        wandb_run_id = None
+        if not self.bucket.exists(self.trainer.experiment_directory + "/trainstate"):
+            wandb_run_id = self.setup_wandb()
+        self.train_state = TrainState.initial_state(step=0, epoch=0,
+                                               misc_attributes={"wandb_run_id": wandb_run_id})
         success = self.arm()
         if not success:
-            self.write_to_logfile(f"Failed to launch {self} on TPU: {self.tpu}")
-            return None
-        self.write_to_logfile("cleanup")
+            self.write_to_logfile(f"Failed to launch {self.name} on TPU: {self.tpu}")
+            raise Exception(f"Failed to launch {self.name} on TPU: {self.tpu}")
+        self.write_to_logfile(f"Successfully snagged a TPU ({self.tpu}) for job {self.name}. Booting now.")
         self.tpu.ssh(self.cleanup, self.env, check=False)
         self.function_call = FunctionCall(self.trainer, self.train_state, self.trainer.get("job/kwargs"), self.tpu.name)
         self.bucket.upload(self.function_call_serialization_path, self.function_call.serialize(), overwrite=True)
@@ -198,7 +220,7 @@ class TPUJob(Job):
                 self.write_to_logfile(f"Installing {self.install}")
                 _, _, retcode = self.tpu.ssh(self.install, self.env, run_async=False, capture_output=True)
                 if retcode != 0:
-                    self.clean_up()
+                    self.write_to_logfile("Install Failed. Raising Exception.")
                     raise Exception(f"Failed to install {self.install}")
                 break
         self.bucket.upload(self.job_state_path, dump_yaml({"state": JobState.RUNNING.value, "tpu_name": self.tpu.name}), overwrite=True)

@@ -1,4 +1,5 @@
 import click
+import time
 from pathlib import Path
 from wormulon.tpu.tpu import TPU
 from wormulon.tpu.bucket import Bucket
@@ -36,6 +37,18 @@ def delete_jobs(bucket_name, filter=None, wipe=False):
             print(f"setting {job_id} to FAILURE.")
             bucket.upload(job['blob'].name, dump_yaml({"state": JobState.FAILURE.value}), overwrite=True)
 
+@click.command(context_settings={})
+def nuke_exps():
+    print("deleting tpus.")
+    delete_tpus()
+    print("waiting 30 seconds...")
+    time.sleep(30)
+    print("nuking experiment folders.")
+    bucket_names = ["must-results", "must-results-europe"]
+    for bucket_name in bucket_names:
+        bucket = Bucket(bucket_name)
+        bucket.delete_folder(bucket_name, "experiments")
+    print("done.")
 
 @click.command(context_settings={})
 @click.argument("bucket_name")
@@ -55,9 +68,7 @@ def show_tpus():
         for row in rows:
             print(row + f"\t {zone}")
 
-
-@click.command(context_settings={})
-def delete_all_tpus():
+def delete_tpus():
     zones = ["us-central1-f", "europe-west4-a"]
     default_tpu_kwargs = {
             "network": "tpu-network",
@@ -80,3 +91,6 @@ def delete_all_tpus():
                 tpu = TPU(row.split("\t")[0], **default_tpu_kwargs)
                 tpu.delete()
 
+@click.command(context_settings={})
+def delete_all_tpus():
+    delete_tpus()
