@@ -85,6 +85,7 @@ class Nanny:
                 self.write_to_logfile(f"Nanny cleaning up the dead job {job.name} with heartbeat stopped: {heartbeat_stopped} and proc_died: {proc_died}.")
                 job.write_to_logfile(f"Nanny cleaning up the dead job {job.name} with heartbeat stopped: {heartbeat_stopped} and proc_died: {proc_died}.")
                 job.clean_up()
+                job_proc.terminate()
                 del self.job_procs[job_id]
                 to_remove.append(job_id)
 

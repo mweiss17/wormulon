@@ -33,11 +33,11 @@ class TPUJob(Job):
     def write_to_logfile(self, message, verbose=False):
         if verbose:
             print(message, flush=True)
-        with open(self.logfile_path, "a") as fp:
+        with open(self.logfile_path, "a+") as fp:
             fp.write(f"{message}\n")
 
     def write_to_errfile(self, message):
-        with open(self.errfile_path, "a") as fp:
+        with open(self.errfile_path, "a+") as fp:
             fp.write(f"{message}\n")
 
     @property

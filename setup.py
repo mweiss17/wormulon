@@ -22,7 +22,8 @@ setup(
             "delete_jobs = wormulon.tpu.utils:delete_jobs",
             "show_experiments = wormulon.tpu.utils:show_experiments",
             "show_tpus = wormulon.tpu.utils:show_tpus",
-            "delete_all_tpus = wormulon.tpu.utils:delete_all_tpus"
+            "delete_all_tpus = wormulon.tpu.utils:delete_all_tpus",
+            "nuke_exps = wormulon.tpu.utils:nuke_exps"
         ],
     },
 )

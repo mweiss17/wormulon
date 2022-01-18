@@ -20,6 +20,8 @@ def _mp_fn(index, fn_call_buffer, bucket_name, job_state_path):
             trainstate_buf = bucket.download(fn_call.trainstate)
             train_state = TrainState.deserialize(trainstate_buf)
         fn_call.trainstate = train_state
+        fn_call.step = train_state.step
+        fn_call.epoch = train_state.epoch
     fn_call.call()
 
     if fn_call.trainstate.step >= fn_call.trainer.get("num_train_steps") and index == 0:
