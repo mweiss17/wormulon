@@ -205,8 +205,15 @@ class Salvo(object):
             script_path = os.path.abspath(script_path)
         else:
             script_path = script_path
+
+        if self.get_salvo_arg("--use-xvfb"):
+            command = ['xvfb-run -a -s "-screen 0 800x600x24" python3']
+        else:
+            command = ["python3"]
+        command.extend([script_path, *script_args])
+
         rich.print(
-            f":rocket: [bold]Launching:[/bold] [bold blue]python[/bold blue] "
+            f":rocket: [bold]Launching:[/bold] [bold blue]{command}[/bold blue] "
             f"[bold green]{script_path}[/bold green] "
             f"[bold magenta]{' '.join(script_args)}[/bold magenta]"
         )
@@ -214,12 +221,6 @@ class Salvo(object):
         if is_dry_run:
             job = None
         else:
-            if self.get_salvo_arg("--use-xvfb"):
-                command = ['xvfb-run -a -s "-screen 0 800x600x24" python3']
-            else:
-                command = ["python3"]
-            command.extend([script_path, *script_args])
-
             # Setup Submitit
             if self.executor is None:
                 self.executor = self._build_executor(script_args[0])
