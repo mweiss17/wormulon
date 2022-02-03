@@ -206,7 +206,7 @@ class Salvo(object):
         else:
             script_path = script_path
 
-        if self.get_salvo_arg("--use-xvfb"):
+        if self.in_salvo_arg_block("--use-xvfb"):
             command = ['xvfb-run -a -s "-screen 0 800x600x24" python3']
         else:
             command = ["python3"]
