@@ -212,7 +212,7 @@ class Salvo(object):
             command = ["python3"]
 
         rich.print(
-            f":rocket: [bold]Launching:[/bold] [bold blue]{command}[/bold blue] "
+            f":rocket: [bold]Launching:[/bold] [bold blue]{' '.join(command)}[/bold blue] "
             f"[bold green]{script_path}[/bold green] "
             f"[bold magenta]{' '.join(script_args)}[/bold magenta]"
         )
