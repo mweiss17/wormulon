@@ -207,7 +207,7 @@ class Salvo(object):
             script_path = script_path
 
         if self.in_salvo_arg_block("--use-xvfb"):
-            command = ['xvfb-run -a ', 'python3']
+            command = ['xvfb-run', '-a', 'python3']
         else:
             command = ["python3"]
 
