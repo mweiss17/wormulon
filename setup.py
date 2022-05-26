@@ -9,7 +9,7 @@ setup(
     author_email="martin.clyde.weiss@gmail.com",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=["click", "rich", "submitit", "wandb", "numpy", "stopit"],
+    install_requires=["click", "rich", "submitit", "wandb", "numpy", "stopit", "google-cloud-storage", "dill", "gcloud"],
     entry_points={
         "console_scripts": [
             "submit = wormulon.submit:main",
