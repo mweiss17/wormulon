@@ -8,4 +8,4 @@ def generator(args):
     parsed = parser.parse_args(args)
 
     for dir_path in Path(parsed.dir).iterdir():
-        yield dict(dir_path=str(dir_path))
+        yield dict(dir_path=str(dir_path), dir_name=dir_path.name)
