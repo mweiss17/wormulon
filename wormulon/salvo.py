@@ -40,17 +40,21 @@ class Salvo(object):
         executor = submitit.AutoExecutor(
             folder=os.path.join(experiment_directory, "Logs")
         )
+        additional_parameters = {}
+        if self.get_salvo_arg("reservation") is not None:
+            additional_parameters = {"reservation": self.get_salvo_arg("reservation")}
 
         # setup the executor parameters based on the cluster location
         if executor.cluster == "slurm":
             executor.update_parameters(
-                mem_gb=self.get_salvo_arg("mem_gb", 16),
-                cpus_per_task=self.get_salvo_arg("cpus_per_task", 12),
-                timeout_min=self.get_salvo_arg("timeout_min", 1000),
+                mem_gb=int(self.get_salvo_arg("mem_gb", 64)),
+                cpus_per_task=int(self.get_salvo_arg("cpus_per_task", 10)),
+                timeout_min=int(self.get_salvo_arg("timeout_min", 1600)),
                 tasks_per_node=1,
                 nodes=1,
                 slurm_partition=self.get_salvo_arg("slurm_partition", "long"),
                 gres=self.get_salvo_arg("gres", "gpu:rtx8000:1"),
+                additional_parameters=additional_parameters, 
             )
         return executor
 
@@ -170,7 +174,7 @@ class Salvo(object):
 
     def get_salvo_arg(self, flag, default=None):
         if not self.in_salvo_arg_block(flag):
-            return default
+            return os.environ.get(f"SALVO_{flag.upper()}", default)
         arg_idx = self.salvo_arg_block.index(flag) + 1
         return self.salvo_arg_block[arg_idx]
 
@@ -198,7 +202,6 @@ class Salvo(object):
         is_dry_run=False,
         use_abs_path=False,
     ):
-
         job_kwargs = {"job_idx": job_idx, "uuid": uuid.uuid4().hex, **kwargs}
         script_args = [arg.format(**job_kwargs) for arg in template_args]
         if use_abs_path:
@@ -222,8 +225,7 @@ class Salvo(object):
         else:
             command.extend([script_path, *script_args])
             # Setup Submitit
-            if self.executor is None:
-                self.executor = self._build_executor(script_args[0])
+            self.executor = self._build_executor(script_args[0])
             job = self.executor.submit(CommandFunction(command))
 
         job_info = {
